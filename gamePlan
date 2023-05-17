@@ -1,3 +1,7 @@
 1. Make a main menu
 2. Follow the tutorial for the backbone
 3. offline version of the game, which will be very basic
+
+
+    player - probably an object with multiple properties, has an attack function with a parameter for a weapon, based on this parameter 
+    the attack funciton will shoot bullets in a certain time frame/ punch if its melee
