@@ -3,6 +3,7 @@ import os
 import sys
 import ctypes
 import time
+from pytmx.util_pygame import load_pygame
 
 
 pygame.init()
@@ -19,8 +20,23 @@ PLAYER_SIZE= [100, 100]
 BARREL_SIZE = (177/3, 238/3)
 WEAPON_SIZE = (412/7,166/7)
 BULLET_SIZE = (32/3, 80/3)
-TILE_SIZE = [100, 100]
+TILE_SIZE = [128, 120]
 
+TMX_DATA = load_pygame('map1Test.tmx')
+spriteGroup = pygame.sprite.Group()
+
+
+class Tile(pygame.sprite.Sprite):
+    def __init__(self, pos, surf: pygame.Surface, groups):
+        super().__init__(groups)
+        self.image = surf
+        self.rect = self.image.get_rect(topleft = pos)
+      
+for tiles in TMX_DATA.layers:
+    if hasattr(tiles, 'data'):
+        for x,y,surf in tiles.tiles():
+            pos = (x * TILE_SIZE[0], y * TILE_SIZE[1])
+            Tile(pos = pos, surf = surf, groups = spriteGroup)
 
 ##To Maximize the Window Size ONLY FOR WINDOWS
 if sys.platform == "win32":
@@ -198,55 +214,19 @@ class Player():
             testWeapon1.rect.x = self.rect.x + 35
             testWeapon1.rect.y = self.rect.y + 35
 
-def gridCreation(): #debug
-    for line in range (0, 16):
-        pygame.draw.line(GAME_WINDOW, (255,255,255), (0,  line * TILE_SIZE[0]), (WIDTH, line * TILE_SIZE[0]))
-        pygame.draw.line(GAME_WINDOW, (255, 255, 255), (line * TILE_SIZE[1], 0), (line * TILE_SIZE[1], HEIGHT))
-
-def drawMap(tileData):
-        
-        tileImage = pygame.image.load('sprites\sci-fiPlatform\png\Tiles\BGTile (5).png')
-
-        for i in range(0, len(tileData)):
-            for p in range(0, len(tileData[i])):
-                if tileData[i][p] == 1: #currently we have a single tile, this would usually check for the type of sprite to be used, we should use a switch here, so it is optimized
-                    tile = tileImage
-                    tile = pygame.transform.scale(tile, TILE_SIZE)
-                    tileRect = tile.get_rect()
-                    tileRect.x = p * TILE_SIZE[0]
-                    tileRect.y = i * TILE_SIZE[1]
-                    GAME_WINDOW.blit(tile, tileRect)
-
-    
-           
-
 class Object():
     def __init__(self, x, y):
         self.image = pygame.image.load('sprites\sci-fiPlatform\png\Objects\Barrel (1).png')
         self.image = pygame.transform.scale(self.image, BARREL_SIZE)
         self.rect = pygame.Rect(BARREL_SIZE[0] - PLAYER_SIZE[0], BARREL_SIZE[1] - PLAYER_SIZE[1], 177/3, 238/3)
-        self.rect.x = x * TILE_SIZE[0] + 20
-        self.rect.y = y * TILE_SIZE[1] + 10
+        self.rect.x = 500
+        self.rect.y = 500
 
     def updateObject(self):
         GAME_WINDOW.blit(self.image, self.rect)
 
-tileData = [
-[1 , 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-[1 , 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-[1 , 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-[1 , 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-[1 , 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-[1 , 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-[1 , 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-[1 , 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-]
-
-
-
 def drawWindow(keys):
-    GAME_WINDOW.fill(BG)
-    drawMap(tileData)
+    spriteGroup.draw(GAME_WINDOW)
     player1.updatePlayer(keys)
     testObject1.updateObject()
     testWeapon1.updateWeapon()
