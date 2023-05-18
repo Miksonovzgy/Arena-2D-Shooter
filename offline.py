@@ -195,10 +195,6 @@ class Player():
             case "RIGHT":
                 self.rect.x += PLAYER_SPEED_X
 
-
-
-    
-
     def checkForWeaponDetection(self, events):
         for event in events:
             if testWeapon1.rect.colliderect(self.rect.x + 20, self.rect.y + 20, self.rect.height + 20, self.rect.width + 20) and event.type == pygame.KEYDOWN and self.weapon != True:
