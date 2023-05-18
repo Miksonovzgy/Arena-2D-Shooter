@@ -2,24 +2,20 @@ import pygame
 import os
 import sys
 import ctypes
-import time
+import math
 
 
 pygame.init()
+
+#For texts
+def get_font(size): # Returns Press-Start-2P in the desired size
+    return pygame.font.Font("assets/font.ttf", size)
 
 
 FPS = 60
 SCREEN_INFO = pygame.display.Info()
 WIDTH,HEIGHT = SCREEN_INFO.current_w, SCREEN_INFO.current_h
 GAME_WINDOW = pygame.display.set_mode((WIDTH - 20, HEIGHT - 20), pygame.RESIZABLE)
-
-BG = (135,206,235)
-ANIMATION_SPEED = 5
-PLAYER_SIZE= [100, 100]
-BARREL_SIZE = (177/3, 238/3)
-WEAPON_SIZE = (412/7,166/7)
-BULLET_SIZE = (32/3, 80/3)
-TILE_SIZE = [100, 100]
 
 
 ##To Maximize the Window Size ONLY FOR WINDOWS
@@ -28,23 +24,77 @@ if sys.platform == "win32":
     SW_MAXIMIZE = 3
     ctypes.windll.user32.ShowWindow(HWND, SW_MAXIMIZE)
 
-class Weapon():
+BG = (135,206,235)
+ANIMATION_SPEED = 10
+PLAYER_SIZE= [100, 100]
+BARREL_SIZE = (177/3, 238/3)
+WEAPON_SIZE = (412/7,166/7)
+BULLET_SIZE = (32/3, 80/3)
+
+class Object():
     def __init__(self):
-        self.image = pygame.image.load('sprites/weapons/pistol3.png')
-        self.image = pygame.transform.scale(self.image, WEAPON_SIZE)
-        self.rect = pygame.Rect(700, 700, 412/7, 166/7)
-        self.rect.x = 700
-        self.rect.y = 700
-    
-    
-    def updateWeapon(self):
+        self.image = pygame.image.load('sprites\sci-fiPlatform\png\Objects\Barrel (1).png')
+        self.image = pygame.transform.scale(self.image, BARREL_SIZE)
+        self.rect = pygame.Rect(500, 500, 177/3, 238/3)
+        self.rect.x = 500
+        self.rect.y = 500
+
+    def updateObject(self):
         GAME_WINDOW.blit(self.image, self.rect)
 
 
-class Bullet():
+class Weapon():
     def __init__(self):
-        self.image = pygame.transform.scale(pygame.image.load('sprites/weapons/small_bullet2.png'), BULLET_SIZE)
-        self.rect = pygame.Rect
+        self.image = pygame.image.load('sprites/weapons/pistol3.png')
+        self.image_original = pygame.transform.scale(self.image, WEAPON_SIZE)
+        self.rect = pygame.Rect(700, 700, 412/7, 166/7)
+
+    def rotateWeapon(self):
+        mouse_x, mouse_y = pygame.mouse.get_pos()
+        dx, dy = mouse_x - self.rect.centerx, -(mouse_y - self.rect.centery)
+        angle = math.degrees(math.atan2(dy, dx))
+        self.image = pygame.transform.rotate(self.image_original, angle)
+        self.rect = self.image.get_rect(center=self.rect.center)
+
+
+    
+    
+    def updateWeapon(self, player):
+        if(player.weapon):
+            GAME_WINDOW.blit(self.image, self.rect)
+        else:
+            GAME_WINDOW.blit(self.image_original, self.rect)
+        
+
+
+#class Bullet():
+ #   def __init__(self, weapon):
+  #      self.image_original = pygame.transform.scale(pygame.image.load('sprites/weapons/small_bullet2.png'), BULLET_SIZE)
+   #     self.rect = pygame.Rect(weapon.rect.centerx, weapon.rect.centery, 32/3, 80/3)
+    #    self.speed = 50
+#
+        #INITIAL ROTATION MODULE
+ #       mouse_x, mouse_y = pygame.mouse.get_pos()
+  #      dx, dy = mouse_x - self.rect.centerx, -(mouse_y - self.rect.centery)
+   #     angle = math.degrees(math.atan2(dy, dx))
+   #     self.image = pygame.transform.rotate(self.image_original, angle - 90)
+    #    print(angle)
+     #   self.rect = self.image.get_rect(center=self.rect.center)
+        #END
+
+    #def rotateBullet(self):
+    
+    #def updateBullet(self):
+     #   self.rect.x += 50
+      #  self.rect.y += 50
+       # GAME_WINDOW.blit(self.image, self.rect)
+        
+
+
+        
+
+
+
 
 class Player():
     def __init__(self):
@@ -57,7 +107,7 @@ class Player():
         self.position = ""
         self.weapon = False
         self.ammo = []
-        self.health = []
+        self.health = 3
 
         for i in range(1, 4):
             image = pygame.image.load(f'sprites\player{i}.png')
@@ -94,7 +144,7 @@ class Player():
 
         #handling Movement
         if keys[pygame.K_w] and self.rect.y > 0:
-            PLAYER_SPEED_Y = -30
+            PLAYER_SPEED_Y = -15
             self.animationCooldown += 1
             if self.animationCooldown == ANIMATION_SPEED:
                 self.imageIndex += 1
@@ -105,7 +155,7 @@ class Player():
             self.position = "UP"
             
         if keys[pygame.K_s] and self.rect.y + self.rect.height < HEIGHT:
-            PLAYER_SPEED_Y = 30
+            PLAYER_SPEED_Y = 15
             self.animationCooldown += 1
             if self.animationCooldown == ANIMATION_SPEED:
                 self.imageIndex += 1
@@ -116,7 +166,7 @@ class Player():
             self.position = "DOWN"
 
         if keys[pygame.K_d] and self.rect.x + self.rect.width < WIDTH:
-            PLAYER_SPEED_X = 30
+            PLAYER_SPEED_X = 15
             self.animationCooldown += 1
             if self.animationCooldown == ANIMATION_SPEED:
                 self.imageIndex += 1
@@ -127,7 +177,7 @@ class Player():
             self.position = "RIGHT"
 
         if keys[pygame.K_a] and self.rect.x > 0:
-            PLAYER_SPEED_X = -30
+            PLAYER_SPEED_X = -15
             self.animationCooldown += 1
             if self.animationCooldown == ANIMATION_SPEED:
                 self.imageIndex += 1
@@ -183,11 +233,12 @@ class Player():
 
     
 
-    def checkForWeaponDetection(self, events):
+    def checkForWeaponDetection(self, events, weapon):
         for event in events:
-            if testWeapon1.rect.colliderect(self.rect.x + 20, self.rect.y + 20, self.rect.height + 20, self.rect.width + 20) and event.type == pygame.KEYDOWN and self.weapon != True:
+            if weapon.rect.colliderect(self.rect.x + 20, self.rect.y + 20, self.rect.height + 20, self.rect.width + 20) and event.type == pygame.KEYDOWN and self.weapon != True:
                 if(event.key == pygame.K_e):
                     self.weapon = True
+                    
             
             if self.weapon == True and event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_q:
@@ -195,61 +246,52 @@ class Player():
                 
                 
         if self.weapon:
-            testWeapon1.rect.x = self.rect.x + 35
-            testWeapon1.rect.y = self.rect.y + 35
-
-def gridCreation(): #debug
-    for line in range (0, 16):
-        pygame.draw.line(GAME_WINDOW, (255,255,255), (0,  line * TILE_SIZE[0]), (WIDTH, line * TILE_SIZE[0]))
-        pygame.draw.line(GAME_WINDOW, (255, 255, 255), (line * TILE_SIZE[1], 0), (line * TILE_SIZE[1], HEIGHT))
-
-def drawMap(tileData):
-        
-        tileImage = pygame.image.load('sprites\sci-fiPlatform\png\Tiles\BGTile (5).png')
-
-        for i in range(0, len(tileData)):
-            for p in range(0, len(tileData[i])):
-                if tileData[i][p] == 1: #currently we have a single tile, this would usually check for the type of sprite to be used, we should use a switch here, so it is optimized
-                    tile = tileImage
-                    tile = pygame.transform.scale(tile, TILE_SIZE)
-                    tileRect = tile.get_rect()
-                    tileRect.x = p * TILE_SIZE[0]
-                    tileRect.y = i * TILE_SIZE[1]
-                    GAME_WINDOW.blit(tile, tileRect)
+            weapon.rotateWeapon()
+            weapon.rect.x = self.rect.x + 35
+            weapon.rect.y = self.rect.y + 65
 
     
-           
+    def healthDisplay(self):
+        healthText = get_font(30).render(f'Health:{self.health} ', True, "Red")
+        healthRect = healthText.get_rect(center=(140,25))
+        GAME_WINDOW.blit(healthText, healthRect)
 
-class Object():
-    def __init__(self, x, y):
-        self.image = pygame.image.load('sprites\sci-fiPlatform\png\Objects\Barrel (1).png')
-        self.image = pygame.transform.scale(self.image, BARREL_SIZE)
-        self.rect = pygame.Rect(BARREL_SIZE[0] - PLAYER_SIZE[0], BARREL_SIZE[1] - PLAYER_SIZE[1], 177/3, 238/3)
-        self.rect.x = x * TILE_SIZE[0] + 20
-        self.rect.y = y * TILE_SIZE[1] + 10
+    
+    def checkIfShooting(self, weapon, events):
+        for event in events:
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                bullet_image_original = pygame.transform.scale(pygame.image.load('sprites/weapons/small_bullet2.png'), BULLET_SIZE)
+                bullet_rect = pygame.Rect(weapon.rect.centerx, weapon.rect.centery, 32/3, 80/3)
+                speed = 50
 
-    def updateObject(self):
-        GAME_WINDOW.blit(self.image, self.rect)
+                #INITIAL ROTATION MODULE
+                mouse_x, mouse_y = pygame.mouse.get_pos()
+                dx, dy = mouse_x - bullet_rect.centerx, -(mouse_y - bullet_rect.centery)
+                angle = math.degrees(math.atan2(dy, dx))
+                bullet_image = pygame.transform.rotate(bullet_image_original, angle - 90)
+                bullet_rect = bullet_image.get_rect(center=self.rect.center)
+                #END
+                
 
-tileData = [
-[1 , 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-[1 , 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-[1 , 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-[1 , 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-[1 , 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-[1 , 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-[1 , 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-[1 , 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-]
+                
+
+
+
+        
+
+        
+
+
 
 
 
 def drawWindow(keys):
     GAME_WINDOW.fill(BG)
-    drawMap(tileData)
     player1.updatePlayer(keys)
+    player1.healthDisplay()
     testObject1.updateObject()
-    testWeapon1.updateWeapon()
+    testWeapon1.updateWeapon(player1)
+
 
 def drawCrosshair():
     x, y = pygame.mouse.get_pos()
@@ -258,8 +300,9 @@ def drawCrosshair():
     pygame.draw.rect(GAME_WINDOW, (255,0,0), [x, y + 6 , 4, 10])
     pygame.draw.rect(GAME_WINDOW, (255,0,0), [x, y - 12 , 4, 10])
 
+
 player1 = Player()
-testObject1 = Object(5, 6)
+testObject1 = Object()
 testWeapon1 = Weapon()
 
 def main():
@@ -267,7 +310,6 @@ def main():
     run = True
 
     pygame.mouse.set_visible(False)
-
     while run:
         clock.tick(FPS)
         events = pygame.event.get()    
@@ -277,9 +319,13 @@ def main():
             if event.type == pygame.QUIT:
                 run = False
     
-
-        player1.checkForWeaponDetection(events)
         drawWindow(userInput)
+        player1.checkIfShooting(testWeapon1, events)
+        
+        player1.checkForWeaponDetection(events, testWeapon1)
+        
+        
+        #drawWindow(userInput)
         drawCrosshair()
         pygame.display.update()
 
