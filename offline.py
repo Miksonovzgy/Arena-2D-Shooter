@@ -14,11 +14,12 @@ WIDTH,HEIGHT = SCREEN_INFO.current_w, SCREEN_INFO.current_h
 GAME_WINDOW = pygame.display.set_mode((WIDTH - 20, HEIGHT - 20), pygame.RESIZABLE)
 
 BG = (135,206,235)
-ANIMATION_SPEED = 10
+ANIMATION_SPEED = 5
 PLAYER_SIZE= [100, 100]
 BARREL_SIZE = (177/3, 238/3)
 WEAPON_SIZE = (412/7,166/7)
 BULLET_SIZE = (32/3, 80/3)
+TILE_SIZE = [100, 100]
 
 
 ##To Maximize the Window Size ONLY FOR WINDOWS
@@ -26,18 +27,6 @@ if sys.platform == "win32":
     HWND = pygame.display.get_wm_info()['window']
     SW_MAXIMIZE = 3
     ctypes.windll.user32.ShowWindow(HWND, SW_MAXIMIZE)
-
-class Object():
-    def __init__(self):
-        self.image = pygame.image.load('sprites\sci-fiPlatform\png\Objects\Barrel (1).png')
-        self.image = pygame.transform.scale(self.image, BARREL_SIZE)
-        self.rect = pygame.Rect(500, 500, 177/3, 238/3)
-        self.rect.x = 500
-        self.rect.y = 500
-
-    def updateObject(self):
-        GAME_WINDOW.blit(self.image, self.rect)
-
 
 class Weapon():
     def __init__(self):
@@ -56,10 +45,6 @@ class Bullet():
     def __init__(self):
         self.image = pygame.transform.scale(pygame.image.load('sprites/weapons/small_bullet2.png'), BULLET_SIZE)
         self.rect = pygame.Rect
-        
-
-
-
 
 class Player():
     def __init__(self):
@@ -109,7 +94,7 @@ class Player():
 
         #handling Movement
         if keys[pygame.K_w] and self.rect.y > 0:
-            PLAYER_SPEED_Y = -15
+            PLAYER_SPEED_Y = -30
             self.animationCooldown += 1
             if self.animationCooldown == ANIMATION_SPEED:
                 self.imageIndex += 1
@@ -120,7 +105,7 @@ class Player():
             self.position = "UP"
             
         if keys[pygame.K_s] and self.rect.y + self.rect.height < HEIGHT:
-            PLAYER_SPEED_Y = 15
+            PLAYER_SPEED_Y = 30
             self.animationCooldown += 1
             if self.animationCooldown == ANIMATION_SPEED:
                 self.imageIndex += 1
@@ -131,7 +116,7 @@ class Player():
             self.position = "DOWN"
 
         if keys[pygame.K_d] and self.rect.x + self.rect.width < WIDTH:
-            PLAYER_SPEED_X = 15
+            PLAYER_SPEED_X = 30
             self.animationCooldown += 1
             if self.animationCooldown == ANIMATION_SPEED:
                 self.imageIndex += 1
@@ -142,7 +127,7 @@ class Player():
             self.position = "RIGHT"
 
         if keys[pygame.K_a] and self.rect.x > 0:
-            PLAYER_SPEED_X = -15
+            PLAYER_SPEED_X = -30
             self.animationCooldown += 1
             if self.animationCooldown == ANIMATION_SPEED:
                 self.imageIndex += 1
@@ -210,19 +195,58 @@ class Player():
                 
                 
         if self.weapon:
-            testWeapon1.rect.x = self.rect.x + 65
-            testWeapon1.rect.y = self.rect.y + 55
+            testWeapon1.rect.x = self.rect.x + 35
+            testWeapon1.rect.y = self.rect.y + 35
 
+def gridCreation(): #debug
+    for line in range (0, 16):
+        pygame.draw.line(GAME_WINDOW, (255,255,255), (0,  line * TILE_SIZE[0]), (WIDTH, line * TILE_SIZE[0]))
+        pygame.draw.line(GAME_WINDOW, (255, 255, 255), (line * TILE_SIZE[1], 0), (line * TILE_SIZE[1], HEIGHT))
+
+def drawMap(tileData):
         
+        tileImage = pygame.image.load('sprites\sci-fiPlatform\png\Tiles\BGTile (5).png')
 
-        
+        for i in range(0, len(tileData)):
+            for p in range(0, len(tileData[i])):
+                if tileData[i][p] == 1: #currently we have a single tile, this would usually check for the type of sprite to be used, we should use a switch here, so it is optimized
+                    tile = tileImage
+                    tile = pygame.transform.scale(tile, TILE_SIZE)
+                    tileRect = tile.get_rect()
+                    tileRect.x = p * TILE_SIZE[0]
+                    tileRect.y = i * TILE_SIZE[1]
+                    GAME_WINDOW.blit(tile, tileRect)
 
+    
+           
 
+class Object():
+    def __init__(self, x, y):
+        self.image = pygame.image.load('sprites\sci-fiPlatform\png\Objects\Barrel (1).png')
+        self.image = pygame.transform.scale(self.image, BARREL_SIZE)
+        self.rect = pygame.Rect(BARREL_SIZE[0] - PLAYER_SIZE[0], BARREL_SIZE[1] - PLAYER_SIZE[1], 177/3, 238/3)
+        self.rect.x = x * TILE_SIZE[0] + 20
+        self.rect.y = y * TILE_SIZE[1] + 10
+
+    def updateObject(self):
+        GAME_WINDOW.blit(self.image, self.rect)
+
+tileData = [
+[1 , 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+[1 , 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+[1 , 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+[1 , 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+[1 , 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+[1 , 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+[1 , 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+[1 , 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+]
 
 
 
 def drawWindow(keys):
     GAME_WINDOW.fill(BG)
+    drawMap(tileData)
     player1.updatePlayer(keys)
     testObject1.updateObject()
     testWeapon1.updateWeapon()
@@ -234,9 +258,8 @@ def drawCrosshair():
     pygame.draw.rect(GAME_WINDOW, (255,0,0), [x, y + 6 , 4, 10])
     pygame.draw.rect(GAME_WINDOW, (255,0,0), [x, y - 12 , 4, 10])
 
-
 player1 = Player()
-testObject1 = Object()
+testObject1 = Object(5, 6)
 testWeapon1 = Weapon()
 
 def main():
@@ -244,6 +267,7 @@ def main():
     run = True
 
     pygame.mouse.set_visible(False)
+
     while run:
         clock.tick(FPS)
         events = pygame.event.get()    
