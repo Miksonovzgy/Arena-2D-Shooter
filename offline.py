@@ -1,17 +1,26 @@
 import pygame
 import os
 import sys
+import ctypes
+
 
 pygame.init()
+
 
 FPS = 60
 SCREEN_INFO = pygame.display.Info()
 WIDTH,HEIGHT = SCREEN_INFO.current_w, SCREEN_INFO.current_h
-GAME_WINDOW = pygame.display.set_mode((WIDTH, HEIGHT), pygame.FULLSCREEN)
+GAME_WINDOW = pygame.display.set_mode((WIDTH - 20, HEIGHT - 20), pygame.RESIZABLE)
+
 BG = (135,206,235)
 ANIMATION_SPEED = 10
 PLAYER_SIZE= [100, 100]
-BARREL_SIZE = [300, 300]
+BARREL_SIZE = [100, 100]
+
+if sys.platform == "win32":
+    HWND = pygame.display.get_wm_info()['window']
+    SW_MAXIMIZE = 3
+    ctypes.windll.user32.ShowWindow(HWND, SW_MAXIMIZE)
 
 class Object():
     def __init__(self):
@@ -118,19 +127,15 @@ class Player():
         match self.position:
             case "UP":
                 if testObject1.rect.colliderect(self.rect.x, self.rect.y + PLAYER_SPEED_Y, self.rect.width, self.rect.height):
-                    print("a")
                     PLAYER_SPEED_Y = 0
             case "DOWN":
                 if testObject1.rect.colliderect(self.rect.x, self.rect.y + PLAYER_SPEED_Y, self.rect.width, self.rect.height):
-                    print("a")
                     PLAYER_SPEED_Y = 0
             case "LEFT":
                 if testObject1.rect.colliderect(self.rect.x + PLAYER_SPEED_X, self.rect.y, self.rect.width, self.rect.height):
-                    print("a")
                     PLAYER_SPEED_X = 0 
             case "RIGHT":
                 if testObject1.rect.colliderect(self.rect.x + PLAYER_SPEED_X, self.rect.y, self.rect.width, self.rect.height):
-                    print("a")
                     PLAYER_SPEED_X = 0
 
         if keys[pygame.K_w] == False and keys[pygame.K_s] == False and keys[pygame.K_a] == False and keys[pygame.K_d] == False:
@@ -158,10 +163,20 @@ class Player():
                 self.rect.x += PLAYER_SPEED_X
 
 
+
+
 def drawWindow():
     GAME_WINDOW.fill(BG)
     player1.updatePlayer()
     testObject1.updateObject()
+
+def drawCrosshair():
+    x, y = pygame.mouse.get_pos()
+    pygame.draw.rect(GAME_WINDOW, (255,0,0), [x + 6, y, 10, 4])
+    pygame.draw.rect(GAME_WINDOW, (255,0,0), [x - 12, y, 10, 4])
+    pygame.draw.rect(GAME_WINDOW, (255,0,0), [x, y + 6 , 4, 10])
+    pygame.draw.rect(GAME_WINDOW, (255,0,0), [x, y - 12 , 4, 10])
+
 
 player1 = Player()
 testObject1 = Object()
@@ -169,12 +184,15 @@ testObject1 = Object()
 def main():
     clock = pygame.time.Clock()
     run = True
+
+    pygame.mouse.set_visible(False)
     while run:
         clock.tick(FPS)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
         drawWindow()
+        drawCrosshair()
         pygame.display.update()
 
              
