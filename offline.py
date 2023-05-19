@@ -5,6 +5,9 @@ import ctypes
 import time
 from pytmx.util_pygame import load_pygame
 import random
+import math
+
+
 pygame.init()
 OBJECTS = []
 FPS = 60
@@ -19,10 +22,16 @@ BARREL_SIZE = (177/3, 238/3)
 WEAPON_SIZE = (412/7,166/7)
 BULLET_SIZE = (32/3, 80/3)
 TILE_SIZE = [128, 120]
+BULLETS_ON_MAP = []
 
 TMX_DATA = load_pygame('map1Test.tmx') #IMPORTANT: dont forget to change map collisions after chaning the map
 
 #tileSpriteGroup = pygame.sprite.Group()
+
+
+def get_font(size): # Returns Press-Start-2P in the desired size
+    return pygame.font.Font("assets/font.ttf", size)
+
 
 class Tile(pygame.sprite.Sprite): #WATCH TUTORIAL
     def __init__(self, pos, surf: pygame.Surface, group): #,group
@@ -42,8 +51,9 @@ class Player(pygame.sprite.Sprite):
         self.position = pygame.math.Vector2() #movement physics is a bit changed now, i think its smoother
         self.speed = 30
         self.weapon = False
-        self.ammo = []
-        self.health = []
+        self.ammo = 500
+        self.health = 3
+        self.nickname = "playerOne"
 
         for i in range(1, 4):
             image = pygame.image.load(f'sprites/player{i}.png')
@@ -122,9 +132,13 @@ class Player(pygame.sprite.Sprite):
                 self.image = self.imagesAnimationRight[self.imageIndex]
                 self.animationCooldown = 0
 
-    def updatePlayer(self):
+    def updatePlayer(self, events, spriteGroup):
         self.playerInput()
         self.animations()
+        self.checkIfShooting(events, spriteGroup)
+        self.checkForHits()
+        self.healthDisplay()
+        self.ammoDisplay()
 
         speed = self.speed
         position = self.position
@@ -133,19 +147,20 @@ class Player(pygame.sprite.Sprite):
             speed = 0 #this checks for collisions with the borders of the map
 
         for barrelTest in OBJECTS: #a bit messy, might wanna have a second look
-            if self.position.y == -1 and barrelTest.rect.colliderect(self.rect.x, self.rect.y + - speed, self.rect.width , self.rect.height) :
-                speed = 0
-            elif self.position.y == 1 and barrelTest.rect.colliderect(self.rect.x, self.rect.y + speed, self.rect.width, self.rect.height):
-                speed = 0
-            elif self.position.x == -1 and barrelTest.rect.colliderect(self.rect.x - speed, self.rect.y, self.rect.width, self.rect.height):
-                speed = 0
-            elif self.position.x == 1 and barrelTest.rect.colliderect(self.rect.x + speed, self.rect.y, self.rect.width, self.rect.height):
-                speed = 0
+            if barrelTest not in BULLETS_ON_MAP:
+                if self.position.y == -1 and barrelTest.rect.colliderect(self.rect.x, self.rect.y + - speed, self.rect.width , self.rect.height) :
+                    speed = 0
+                elif self.position.y == 1 and barrelTest.rect.colliderect(self.rect.x, self.rect.y + speed, self.rect.width, self.rect.height):
+                    speed = 0
+                elif self.position.x == -1 and barrelTest.rect.colliderect(self.rect.x - speed, self.rect.y, self.rect.width, self.rect.height):
+                    speed = 0
+                elif self.position.x == 1 and barrelTest.rect.colliderect(self.rect.x + speed, self.rect.y, self.rect.width, self.rect.height):
+                    speed = 0
 
         self.rect.center += position * speed #pretty much this is the thing that moves the character
 
 
-    def checkForWeaponDetection(self, events):
+    def checkForWeaponDetection(self, events, weapon):
         for event in events:
             if testWeapon1.rect.colliderect(self.rect.x + 20, self.rect.y + 20, self.rect.height + 20, self.rect.width + 20) and event.type == pygame.KEYDOWN and self.weapon != True:
                 if(event.key == pygame.K_e):
@@ -154,11 +169,37 @@ class Player(pygame.sprite.Sprite):
             if self.weapon == True and event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_q:
                     self.weapon = False
-                
-                
+                  
         if self.weapon:
-            testWeapon1.rect.x = self.rect.x + 35
-            testWeapon1.rect.y = self.rect.y + 35
+            weapon.rotateWeapon()
+            weapon.rect.x = self.rect.x + 35
+            weapon.rect.y = self.rect.y + 35
+
+    def healthDisplay(self):
+        healthText = get_font(30).render(f'Health:{self.health} ', True, "Red")
+        healthRect = healthText.get_rect(center=(160,25))
+        GAME_WINDOW.blit(healthText, healthRect)
+
+    def ammoDisplay(self):
+        ammoText = get_font(30).render(f'Ammo:{self.ammo} ', True, "White")
+        ammoRect = ammoText.get_rect(center=(WIDTH - 0.1 * WIDTH, HEIGHT - 0.95 * HEIGHT))
+        GAME_WINDOW.blit(ammoText, ammoRect)
+
+    def checkIfShooting(self, events, spriteGroup):
+            for event in events:
+                if event.type == pygame.MOUSEBUTTONDOWN and self.ammo > 0 and self.weapon:
+                    bullet = Bullet(self.rect.centerx, self.rect.centery, spriteGroup, self.nickname)
+                    BULLETS_ON_MAP.append(bullet)
+                    OBJECTS.append(bullet)
+                    self.ammo -= 1
+                
+    def checkForHits(self):
+        for bullet in BULLETS_ON_MAP:
+            if bullet.rect.colliderect(self.rect.centerx, self.rect.centery, self.rect.height, self.rect.width) and bullet.shooter != self.nickname:
+                self.health -= 1
+                BULLETS_ON_MAP.remove(bullet)
+                OBJECTS.remove(bullet)
+                del bullet
 
 class CameraGroup(pygame.sprite.Group): #this essentially draws the screen and what you are seeing right now, hence why it has replaced every image creation
     def __init__(self):                 #STRONGLY RECOMMEND: SEE HOW I MAKE IMAGES WITH THIS AND MAKE THE OTHER OBJECTS THE SAME WAY
@@ -197,14 +238,44 @@ class Weapon(pygame.sprite.Sprite): #IMPORTANT, write this thing in the brackets
     def __init__(self, pos, group):
         super().__init__(group) #IMPORTANT, RLY IMPORTANT without this line in the object, this implementation doesnt work
         self.image = pygame.image.load('sprites/weapons/pistol3.png')
-        self.image = pygame.transform.scale(self.image, WEAPON_SIZE)
-        self.rect = self.image.get_rect(topleft = pos)
-
+        self.image_original = pygame.transform.scale(self.image, WEAPON_SIZE)
+        self.rect = self.image.get_rect(center=pos)
+        
+    def rotateWeapon(self):
+        mouse_x, mouse_y = pygame.mouse.get_pos()
+        dx, dy = mouse_x - self.rect.centerx, -(mouse_y - self.rect.centery)
+        angle = math.degrees(math.atan2(dy, dx))
+        self.image = pygame.transform.rotate(self.image_original, angle)
+        self.rect = self.image.get_rect(center=self.rect.center)
 
 class Bullet(pygame.sprite.Sprite):
-    def __init__(self):
-        self.image = pygame.transform.scale(pygame.image.load('sprites/weapons/small_bullet2.png'), BULLET_SIZE)
-        self.rect = pygame.Rect
+    def __init__(self, pos_x, pos_y, group, shooter):
+        super().__init__(group)
+        self.position = pygame.math.Vector2()
+        self.position.x = pos_x
+        self.position.y = pos_y
+        self.image_original = pygame.transform.scale(pygame.image.load('sprites/weapons/small_bullet2.png'), BULLET_SIZE)
+        self.rect = self.image_original.get_rect(center = (pos_x, pos_y))
+        self.bullet_speed = 20
+        self.shooter = shooter
+
+        mouse_x, mouse_y = pygame.mouse.get_pos()
+        dx, dy = mouse_x - self.rect.centerx, -(mouse_y - self.rect.centery)
+        angle = math.degrees(math.atan2(dy, dx)) - 90
+        self.image = pygame.transform.rotate(self.image_original, angle)
+        self.rect = self.image.get_rect(center=self.rect.center)
+
+
+        angle_to_move = math.atan2(mouse_y, mouse_x)
+        self.dx = math.cos(angle_to_move) * self.bullet_speed
+        self.dy = math.sin(angle_to_move) * self.bullet_speed
+
+        print(f'Starting position: {self.rect.center}')
+
+    def move(self):
+        self.position.x += int(self.dx)
+        self.position.y += int(self.dy)
+        self.rect.center = self.position
 
 class ObjectBarrel(pygame.sprite.Sprite):
     def __init__(self, pos, group):
@@ -213,11 +284,14 @@ class ObjectBarrel(pygame.sprite.Sprite):
         self.image = pygame.transform.scale(self.image, BARREL_SIZE)
         self.rect = self.image.get_rect(topleft = pos)
 
-def drawWindow():
+def drawWindow(events, spriteGroup):
+    for bullet in BULLETS_ON_MAP:
+        bullet.move()
+
     GAME_WINDOW.blit(BG, (0,0))
     spriteGroup.update() #inherited from pygame.sprites.Group()
     spriteGroup.cameraDraw(player1) #the custom thing i did
-    player1.updatePlayer() #keeps track of inputs
+    player1.updatePlayer(events, spriteGroup) #keeps track of inputs
 
 def drawCrosshair():
     x, y = pygame.mouse.get_pos()
@@ -247,9 +321,9 @@ def main():
                 run = False
     
 
-        player1.checkForWeaponDetection(events)#this can be called in the update player function in the object itself i think
+        player1.checkForWeaponDetection(events, testWeapon1)#this can be called in the update player function in the object itself i think
 
-        drawWindow()
+        drawWindow(events, spriteGroup)
         drawCrosshair()
         pygame.display.update()
 
