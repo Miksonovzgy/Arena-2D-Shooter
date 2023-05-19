@@ -2,118 +2,101 @@ import pygame
 import os
 import sys
 import ctypes
+import time
+from pytmx.util_pygame import load_pygame
+import random
 import math
 
 
 pygame.init()
+OBJECTS = []
+FPS = 60
+SCREEN_INFO = pygame.display.Info()
+WIDTH,HEIGHT = 1280,720
+GAME_WINDOW = pygame.display.set_mode((WIDTH , HEIGHT))
+BG = pygame.image.load("sprites\sci-fiPlatform\png\Tiles\Acid (2).png")
+BG = pygame.transform.scale(BG,(WIDTH, HEIGHT))
+ANIMATION_SPEED = 5
+PLAYER_SIZE= [100, 100]
+BARREL_SIZE = (177/3, 238/3)
+WEAPON_SIZE = (412/7,166/7)
+BULLET_SIZE = (32/3, 80/3)
+TILE_SIZE = [128, 120]
+
+BULLETS_ON_MAP = []
+
+TMX_DATA = load_pygame('map1Test.tmx')
 
 #For texts
 def get_font(size): # Returns Press-Start-2P in the desired size
     return pygame.font.Font("assets/font.ttf", size)
 
 
-FPS = 60
-SCREEN_INFO = pygame.display.Info()
-WIDTH,HEIGHT = SCREEN_INFO.current_w, SCREEN_INFO.current_h
-GAME_WINDOW = pygame.display.set_mode((WIDTH - 20, HEIGHT - 20), pygame.RESIZABLE)
+class Tile(pygame.sprite.Sprite): #WATCH TUTORIAL
+    def __init__(self, pos, surf: pygame.Surface, group):
+        super().__init__(group)
+        self.image = surf
+        self.rect = self.image.get_rect(topleft = pos)
 
+class CameraGroup(pygame.sprite.Group): #this essentially draws the screen and what you are seeing right now, hence why it has replaced every image creation
+    def __init__(self):                 #STRONGLY RECOMMEND: SEE HOW I MAKE IMAGES WITH THIS AND MAKE THE OTHER OBJECTS THE SAME WAY
+        super().__init__()
+        self.displayScreen = pygame.display.get_surface()
+        self.map = mapDraw() #this is my thing, here i store the tiles from Tiled so i can draw them seperatly instead of a bg image
+        self.cameraX = self.displayScreen.get_size()[0]/2
+        self.cameraY = self.displayScreen.get_size()[1]/2
+        self.offset = pygame.math.Vector2() #this is for centering
 
-##To Maximize the Window Size ONLY FOR WINDOWS
-if sys.platform == "win32":
-    HWND = pygame.display.get_wm_info()['window']
-    SW_MAXIMIZE = 3
-    ctypes.windll.user32.ShowWindow(HWND, SW_MAXIMIZE)
+    def cameraDraw(self, player): #this is the important stuff, im essentially modyfing the draw function here
 
-BG = (135,206,235)
-ANIMATION_SPEED = 10
-PLAYER_SIZE= [100, 100]
-BARREL_SIZE = (177/3, 238/3)
-WEAPON_SIZE = (412/7,166/7)
-BULLET_SIZE = (32/3, 80/3)
+        self.offset.x = player.rect.centerx - self.cameraX
+        self.offset.y = player.rect.centery - self.cameraY #this is for centering
 
-class Object():
-    def __init__(self):
-        self.image = pygame.image.load('sprites\sci-fiPlatform\png\Objects\Barrel (1).png')
-        self.image = pygame.transform.scale(self.image, BARREL_SIZE)
-        self.rect = pygame.Rect(500, 500, 177/3, 238/3)
-        self.rect.x = 500
-        self.rect.y = 500
+        for singleTile in self.map: #this draws the tile map, that might need a second look, as you can see something is fucked up for sure
 
-    def updateObject(self):
-        GAME_WINDOW.blit(self.image, self.rect)
+            offsetGroundPosition = singleTile.rect.topleft - self.offset
+            self.displayScreen.blit(singleTile.image, offsetGroundPosition)
 
-
-class Weapon():
-    def __init__(self):
-        self.image = pygame.image.load('sprites/weapons/pistol3.png')
-        self.image_original = pygame.transform.scale(self.image, WEAPON_SIZE)
-        self.rect = pygame.Rect(700, 700, 412/7, 166/7)
-
-    def rotateWeapon(self):
-        mouse_x, mouse_y = pygame.mouse.get_pos()
-        dx, dy = mouse_x - self.rect.centerx, -(mouse_y - self.rect.centery)
-        angle = math.degrees(math.atan2(dy, dx))
-        self.image = pygame.transform.rotate(self.image_original, angle)
-        self.rect = self.image.get_rect(center=self.rect.center)
-
-
-    
-    
-    def updateWeapon(self, player):
-        if(player.weapon):
-            GAME_WINDOW.blit(self.image, self.rect)
-        else:
-            GAME_WINDOW.blit(self.image_original, self.rect)
-        
-
-
-#class Bullet():
- #   def __init__(self, weapon):
-  #      self.image_original = pygame.transform.scale(pygame.image.load('sprites/weapons/small_bullet2.png'), BULLET_SIZE)
-   #     self.rect = pygame.Rect(weapon.rect.centerx, weapon.rect.centery, 32/3, 80/3)
-    #    self.speed = 50
-#
-        #INITIAL ROTATION MODULE
- #       mouse_x, mouse_y = pygame.mouse.get_pos()
-  #      dx, dy = mouse_x - self.rect.centerx, -(mouse_y - self.rect.centery)
-   #     angle = math.degrees(math.atan2(dy, dx))
-   #     self.image = pygame.transform.rotate(self.image_original, angle - 90)
-    #    print(angle)
-     #   self.rect = self.image.get_rect(center=self.rect.center)
-        #END
-
-    #def rotateBullet(self):
-    
-    #def updateBullet(self):
-     #   self.rect.x += 50
-      #  self.rect.y += 50
-       # GAME_WINDOW.blit(self.image, self.rect)
-        
-
-
-        
+        for sprite in self.sprites(): #draws every sprite (which for now is pistol, barrel and player)
+            offsetPosition = sprite.rect.topleft - self.offset
+            self.displayScreen.blit(sprite.image, offsetPosition)
 
 
 
 
-class Player():
-    def __init__(self):
+spriteGroup = CameraGroup() #this makes the custom group of sprites
+
+def mapDraw(): #WATCH TUTORIAL
+    tileList = []        
+    for tiles in TMX_DATA.layers:
+        if hasattr(tiles, 'data'):
+            for x,y,surf in tiles.tiles():
+                pos = (x * TILE_SIZE[0], y * TILE_SIZE[1])
+                Tile(pos = pos, sruf = surf, group = spriteGroup)
+    return tileList
+
+class Player(pygame.sprite.Sprite):
+    def __init__(self, pos, group):
+        super().__init__(group)
         self.imagesAnimationUp = []
         self.imagesAnimationDown = []
         self.imagesAnimationLeft = []
         self.imagesAnimationRight = []
         self.imageIndex = 0
         self.animationCooldown = 0
-        self.position = ""
+        self.position = pygame.math.Vector2() #movement physics is a bit changed now, i think its smoother
+        self.speed = 30
         self.weapon = False
-        self.ammo = []
+        self.ammo = 1000
         self.health = 3
+        self.nickname = "playerOne"
 
         for i in range(1, 4):
-            image = pygame.image.load(f'sprites\player{i}.png')
+            image = pygame.image.load(f'sprites/player{i}.png')
             image = pygame.transform.scale(image, PLAYER_SIZE)
             if i == 1:
-                self.rect = pygame.Rect(200, 300, PLAYER_SIZE[0], PLAYER_SIZE[1])
+                self.rect = image.get_rect(topleft = pos)
+                self.rect.width = self.rect.width - 35
             self.imagesAnimationUp.append(image)
 
         self.imagesAnimationDown = []
@@ -135,49 +118,40 @@ class Player():
 
         self.image = self.imagesAnimationUp[self.imageIndex]
     
+    def playerInput(self): #new way of calculatng movement and next position, this implementation might be usefull for the UDP 
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_w]:  #from the key presses i store only what the position of the object is suppossed to be
+            self.position.y = -1
+        elif keys[pygame.K_s]:
+            self.position.y = +1
+        else:
+            self.position.y = 0
 
-    def updatePlayer(self, keys):
-        PLAYER_SPEED_X = 0
-        PLAYER_SPEED_Y = 0 
-        GAME_WINDOW.blit(self.image, self.rect)   
+        if keys[pygame.K_d]:
+            self.position.x = +1
+        elif keys[pygame.K_a]:
+            self.position.x = -1
+        else:
+            self.position.x = 0
 
-
-        #handling Movement
-        if keys[pygame.K_w] and self.rect.y > 0:
-            PLAYER_SPEED_Y = -15
+    def animations(self): #made a function to handle animations cuz why not
+        if self.position.y == -1:
             self.animationCooldown += 1
             if self.animationCooldown == ANIMATION_SPEED:
                 self.imageIndex += 1
                 if (self.imageIndex == 3):
-                    self.imageIndex = 0
+                   self.imageIndex = 0
                 self.image = self.imagesAnimationUp[self.imageIndex]
                 self.animationCooldown = 0
-            self.position = "UP"
-            
-        if keys[pygame.K_s] and self.rect.y + self.rect.height < HEIGHT:
-            PLAYER_SPEED_Y = 15
+        elif self.position.y == 1:
             self.animationCooldown += 1
             if self.animationCooldown == ANIMATION_SPEED:
-                self.imageIndex += 1
-                if (self.imageIndex == 3):
+               self.imageIndex += 1
+               if (self.imageIndex == 3):
                     self.imageIndex = 0
-                self.image = self.imagesAnimationDown[self.imageIndex]
-                self.animationCooldown = 0
-            self.position = "DOWN"
-
-        if keys[pygame.K_d] and self.rect.x + self.rect.width < WIDTH:
-            PLAYER_SPEED_X = 15
-            self.animationCooldown += 1
-            if self.animationCooldown == ANIMATION_SPEED:
-                self.imageIndex += 1
-                if (self.imageIndex == 3):
-                    self.imageIndex = 0
-                self.image = self.imagesAnimationRight[self.imageIndex]
-                self.animationCooldown = 0
-            self.position = "RIGHT"
-
-        if keys[pygame.K_a] and self.rect.x > 0:
-            PLAYER_SPEED_X = -15
+               self.image = self.imagesAnimationDown[self.imageIndex]
+               self.animationCooldown = 0
+        elif self.position.x == -1:
             self.animationCooldown += 1
             if self.animationCooldown == ANIMATION_SPEED:
                 self.imageIndex += 1
@@ -185,113 +159,150 @@ class Player():
                     self.imageIndex = 0
                 self.image = self.imagesAnimationLeft[self.imageIndex]
                 self.animationCooldown = 0
-            self.position = "LEFT"
-
-        #colliding with objects
-        match self.position:
-            case "UP":
-                if testObject1.rect.colliderect(self.rect.x, self.rect.y + PLAYER_SPEED_Y, self.rect.width, self.rect.height):
-                    PLAYER_SPEED_Y = 0
-            case "DOWN":
-                if testObject1.rect.colliderect(self.rect.x, self.rect.y + PLAYER_SPEED_Y, self.rect.width, self.rect.height):
-                    PLAYER_SPEED_Y = 0
-            case "LEFT":
-                if testObject1.rect.colliderect(self.rect.x + PLAYER_SPEED_X, self.rect.y, self.rect.width, self.rect.height):
-                    PLAYER_SPEED_X = 0 
-            case "RIGHT":
-                if testObject1.rect.colliderect(self.rect.x + PLAYER_SPEED_X, self.rect.y, self.rect.width, self.rect.height):
-                    PLAYER_SPEED_X = 0
-
-        #Handling animations when stopped
-        if keys[pygame.K_w] == False and keys[pygame.K_s] == False and keys[pygame.K_a] == False and keys[pygame.K_d] == False:
-            match self.position:
-                case "UP":
+        elif self.position.x == 1:
+            self.animationCooldown += 1
+            if self.animationCooldown == ANIMATION_SPEED:
+                self.imageIndex += 1
+                if (self.imageIndex == 3):
                     self.imageIndex = 0
-                    self.image = self.imagesAnimationUp[self.imageIndex]
-                case "DOWN":
-                    self.imageIndex = 0
-                    self.image = self.imagesAnimationDown[self.imageIndex] 
-                case "LEFT":
-                    self.imageIndex = 0
-                    self.image = self.imagesAnimationLeft[self.imageIndex] 
-                case "RIGHT":
-                    self.imageIndex = 0
-                    self.image = self.imagesAnimationRight[self.imageIndex]
+                self.image = self.imagesAnimationRight[self.imageIndex]
+                self.animationCooldown = 0
 
-        #Movement of the Player Rectangle
-        match self.position:
-            case "UP":
-                self.rect.y += PLAYER_SPEED_Y
-            case "DOWN":
-                self.rect.y += PLAYER_SPEED_Y
-            case "LEFT":
-                self.rect.x += PLAYER_SPEED_X
-            case "RIGHT":
-                self.rect.x += PLAYER_SPEED_X
+    def updatePlayer(self):
+        self.playerInput()
+        self.animations()
 
+        speed = self.speed
+        position = self.position
 
+        if (self.rect.x >= 31 * TILE_SIZE[0] and self.position.x == 1) or (self.rect.x <= 0 and self.position.x == -1) or (self.rect.y >= 31 * TILE_SIZE[1] and self.position.y == 1) or (self.rect.y <= 0 and self.position.y == -1):
+            speed = 0 #this checks for collisions with the borders of the map
 
-    
+        for barrelTest in OBJECTS: #a bit messy, might wanna have a second look
+            if self.position.y == -1 and barrelTest.rect.colliderect(self.rect.x, self.rect.y + - speed, self.rect.width , self.rect.height) :
+                speed = 0
+            elif self.position.y == 1 and barrelTest.rect.colliderect(self.rect.x, self.rect.y + speed, self.rect.width, self.rect.height):
+                speed = 0
+            elif self.position.x == -1 and barrelTest.rect.colliderect(self.rect.x - speed, self.rect.y, self.rect.width, self.rect.height):
+                speed = 0
+            elif self.position.x == 1 and barrelTest.rect.colliderect(self.rect.x + speed, self.rect.y, self.rect.width, self.rect.height):
+                speed = 0
+
+        self.rect.center += position * speed #pretty much this is the thing that moves the character
+
 
     def checkForWeaponDetection(self, events, weapon):
         for event in events:
-            if weapon.rect.colliderect(self.rect.x + 20, self.rect.y + 20, self.rect.height + 20, self.rect.width + 20) and event.type == pygame.KEYDOWN and self.weapon != True:
+            if testWeapon1.rect.colliderect(self.rect.x + 20, self.rect.y + 20, self.rect.height + 20, self.rect.width + 20) and event.type == pygame.KEYDOWN and self.weapon != True:
                 if(event.key == pygame.K_e):
                     self.weapon = True
-                    
             
             if self.weapon == True and event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_q:
                     self.weapon = False
                 
-                
         if self.weapon:
             weapon.rotateWeapon()
             weapon.rect.x = self.rect.x + 35
-            weapon.rect.y = self.rect.y + 65
+            weapon.rect.y = self.rect.y + 35
 
-    
+
     def healthDisplay(self):
         healthText = get_font(30).render(f'Health:{self.health} ', True, "Red")
-        healthRect = healthText.get_rect(center=(140,25))
+        healthRect = healthText.get_rect(center=(160,25))
         GAME_WINDOW.blit(healthText, healthRect)
 
-    
-    def checkIfShooting(self, weapon, events):
-        for event in events:
-            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                bullet_image_original = pygame.transform.scale(pygame.image.load('sprites/weapons/small_bullet2.png'), BULLET_SIZE)
-                bullet_rect = pygame.Rect(weapon.rect.centerx, weapon.rect.centery, 32/3, 80/3)
-                speed = 50
+    def ammoDisplay(self):
+        ammoText = get_font(30).render(f'Ammo:{self.ammo} ', True, "White")
+        ammoRect = ammoText.get_rect(center=(WIDTH - 0.1 * WIDTH, HEIGHT - 0.95 * HEIGHT))
+        GAME_WINDOW.blit(ammoText, ammoRect)
 
-                #INITIAL ROTATION MODULE
-                mouse_x, mouse_y = pygame.mouse.get_pos()
-                dx, dy = mouse_x - bullet_rect.centerx, -(mouse_y - bullet_rect.centery)
-                angle = math.degrees(math.atan2(dy, dx))
-                bullet_image = pygame.transform.rotate(bullet_image_original, angle - 90)
-                bullet_rect = bullet_image.get_rect(center=self.rect.center)
-                #END
+    def checkIfShooting(self, events, spriteGroup):
+            for event in events:
+                if event.type == pygame.MOUSEBUTTONDOWN and self.ammo > 0 and self.weapon:
+                    bullet = Bullet(self.rect.centerx, self.rect.centery, spriteGroup, self.nickname)
+                    BULLETS_ON_MAP.append(bullet)
+                    OBJECTS.append(bullet)
+                    self.ammo -= 1
                 
+    def checkForHits(self):
+        for bullet in BULLETS_ON_MAP:
+            if bullet.rect.colliderect(self.rect.centerx, self.rect.centery, self.rect.height, self.rect.width) and bullet.shooter != self.nickname:
+                self.health -= 1
+                BULLETS_ON_MAP.remove(bullet)
+                OBJECTS.remove(bullet)
+                del bullet
 
-                
 
 
+      
+##To Maximize the Window Size ONLY FOR WINDOWS
+if sys.platform == "win32":
+    HWND = pygame.display.get_wm_info()['window']
+    SW_MAXIMIZE = 3
+    ctypes.windll.user32.ShowWindow(HWND, SW_MAXIMIZE)
 
+class Weapon(pygame.sprite.Sprite): #IMPORTANT, write this thing in the brackets it is the inherentence thing you were talking about
+    def __init__(self, pos, group):
+        super().__init__(group) #IMPORTANT, RLY IMPORTANT without this line in the object, this implementation doesnt work
+        self.image = pygame.image.load('sprites/weapons/pistol3.png')
+        self.image_original = pygame.transform.scale(self.image, WEAPON_SIZE)
+        self.rect = self.image.get_rect(center=pos)
         
+    def rotateWeapon(self):
+        mouse_x, mouse_y = pygame.mouse.get_pos()
+        dx, dy = mouse_x - self.rect.centerx, -(mouse_y - self.rect.centery)
+        angle = math.degrees(math.atan2(dy, dx))
+        self.image = pygame.transform.rotate(self.image_original, angle)
+        self.rect = self.image.get_rect(center=self.rect.center)
 
-        
+class Bullet(pygame.sprite.Sprite):
+    def __init__(self, pos_x, pos_y, group, shooter):
+        super().__init__(group)
+        self.position = pygame.math.Vector2()
+        self.position.x = pos_x
+        self.position.y = pos_y
+        self.image_original = pygame.transform.scale(pygame.image.load('sprites/weapons/small_bullet2.png'), BULLET_SIZE)
+        self.rect = self.image_original.get_rect(center = (pos_x, pos_y))
+        self.bullet_speed = 40
+        self.shooter = shooter
+
+        mouse_x, mouse_y = pygame.mouse.get_pos()
+        dx, dy = mouse_x - self.rect.centerx, -(mouse_y - self.rect.centery)
+        angle = math.degrees(math.atan2(dy - pos_y, dx - pos_x)) - 90
+        self.image = pygame.transform.rotate(self.image_original, angle)
+        self.rect = self.image.get_rect(center=self.rect.center)
 
 
+        angle_to_move = math.atan2(mouse_y, mouse_x)
+        self.dx = math.cos(angle_to_move) * self.bullet_speed
+        self.dy = math.sin(angle_to_move) * self.bullet_speed
 
+        print(f'Starting position: {self.rect.center}')
 
+    def move(self):
+        self.position.x += int(self.dx)
+        self.position.y += int(self.dy)
+        self.rect.center = self.position
 
-def drawWindow(keys):
-    GAME_WINDOW.fill(BG)
-    player1.updatePlayer(keys)
+class ObjectBarrel(pygame.sprite.Sprite):
+    def __init__(self, pos, group):
+        super().__init__(group)
+        self.image = pygame.image.load('sprites\sci-fiPlatform\png\Objects\Barrel (1).png')
+        self.image = pygame.transform.scale(self.image, BARREL_SIZE)
+        self.rect = self.image.get_rect(topleft = pos)
+
+def drawWindow():
+
+    for bullet in BULLETS_ON_MAP:
+        bullet.move()
+
+    spriteGroup.update() #inherited from pygame.sprites.Group()
+    spriteGroup.cameraDraw(player1) #the custom thing i did
+    player1.updatePlayer() #keeps track of inputs
     player1.healthDisplay()
-    testObject1.updateObject()
-    testWeapon1.updateWeapon(player1)
-
+    player1.ammoDisplay()
+    player1.checkForHits()
 
 def drawCrosshair():
     x, y = pygame.mouse.get_pos()
@@ -300,32 +311,29 @@ def drawCrosshair():
     pygame.draw.rect(GAME_WINDOW, (255,0,0), [x, y + 6 , 4, 10])
     pygame.draw.rect(GAME_WINDOW, (255,0,0), [x, y - 12 , 4, 10])
 
-
-player1 = Player()
-testObject1 = Object()
-testWeapon1 = Weapon()
+player1 = Player((1000, 900), spriteGroup)
+testObject1 = ObjectBarrel((200, 200), spriteGroup)
+OBJECTS.append(testObject1)#saving the barrel in a list tocheck for collisions, ideally this will be a lit of static objects and even more ideally we can check only for the close ones in the Player object
+testWeapon1 = Weapon((300, 300), spriteGroup)
 
 def main():
     clock = pygame.time.Clock()
     run = True
 
     pygame.mouse.set_visible(False)
+
     while run:
         clock.tick(FPS)
         events = pygame.event.get()    
-        userInput = pygame.key.get_pressed()
 
         for event in events:
             if event.type == pygame.QUIT:
                 run = False
     
-        drawWindow(userInput)
-        player1.checkIfShooting(testWeapon1, events)
-        
-        player1.checkForWeaponDetection(events, testWeapon1)
-        
-        
-        #drawWindow(userInput)
+
+        player1.checkIfShooting(events, spriteGroup)
+        player1.checkForWeaponDetection(events, testWeapon1)#this can be called in the update player function in the object itself i think
+        drawWindow()
         drawCrosshair()
         pygame.display.update()
 
