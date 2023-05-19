@@ -179,8 +179,8 @@ class CameraGroup(pygame.sprite.Group): #this essentially draws the screen and w
             self.displayScreen.blit(sprite.image, offsetPosition)
 
 spriteGroup = CameraGroup() #this makes the custom group of sprites
+
 def mapDraw(): #WATCH TUTORIAL      
-    print(TMX_DATA.layers) 
     for tiles in TMX_DATA.layers:
         if hasattr(tiles, 'data'):
             for x,y,surf in tiles.tiles():
