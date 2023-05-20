@@ -74,7 +74,7 @@ class Tile(pygame.sprite.Sprite): #WATCH TUTORIAL
         self.rect = self.image.get_rect(topleft = pos)
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self, pos, group):
+    def __init__(self, pos, group, nickname):
         super().__init__(group)
         self.imagesAnimationUp = []
         self.imagesAnimationDown = []
@@ -87,7 +87,8 @@ class Player(pygame.sprite.Sprite):
         self.weapon = False
         self.ammo = 500
         self.health = 3
-        self.nickname = "playerOne"
+        self.nickname = nickname
+        self.isPlayable = False
         PLAYERS_ON_MAP.append(self)
 
         for i in range(1, 4):
@@ -97,8 +98,6 @@ class Player(pygame.sprite.Sprite):
                 self.rect = image.get_rect(topleft = pos)
                 self.rect.width = self.rect.width - 35
             self.imagesAnimationUp.append(image)
-
-        self.imagesAnimationDown = []
 
         for i in range(1, 4):
             image = pygame.image.load(f'sprites\playerDown{i}.png')
@@ -117,21 +116,27 @@ class Player(pygame.sprite.Sprite):
 
         self.image = self.imagesAnimationUp[self.imageIndex]
     
-    def playerInput(self): #new way of calculatng movement and next position, this implementation might be usefull for the UDP 
+    def playerInput(self, x = 0, y = 0): #new way of calculatng movement and next position, this implementation might be usefull for the UDP 
         keys = pygame.key.get_pressed()
-        if keys[pygame.K_w]:  #from the key presses i store only what the position of the object is suppossed to be
-            self.position.y = -1
-        elif keys[pygame.K_s]:
-            self.position.y = +1
-        else:
-            self.position.y = 0
+        if self.isPlayable:
+            if keys[pygame.K_w]:  #from the key presses i store only what the position of the object is suppossed to be
+                self.position.y = -1
+            elif keys[pygame.K_s]:
+                self.position.y = +1
+            else:
+                self.position.y = 0
 
-        if keys[pygame.K_d]:
-            self.position.x = +1
-        elif keys[pygame.K_a]:
-            self.position.x = -1
+            if keys[pygame.K_d]:
+                self.position.x = +1
+            elif keys[pygame.K_a]:
+                self.position.x = -1
+            else:
+                self.position.x = 0
+        
         else:
-            self.position.x = 0
+            self.position.x = x
+            self.position.y = y
+
 
     def animations(self): #made a function to handle animations cuz why not
         if self.position.y == -1:
@@ -168,12 +173,15 @@ class Player(pygame.sprite.Sprite):
                 self.animationCooldown = 0
 
     def updatePlayer(self, events, spriteGroup, weapon):
-        self.playerInput()
+        self.playerInput(1, 0)
         self.animations()
         self.checkIfShooting(events, spriteGroup, weapon)
         self.checkForHits()
+        self.checkForHealth()
         self.healthDisplay()
+        self.nicknameDisplay()
         self.ammoDisplay()
+        
 
         speed = self.speed
         position = self.position
@@ -211,14 +219,25 @@ class Player(pygame.sprite.Sprite):
             weapon.rect.y = self.rect.y + 35
 
     def healthDisplay(self):
-        healthText = get_font(30).render(f'Health:{self.health} ', True, "Red")
-        healthRect = healthText.get_rect(center=(160,25))
-        GAME_WINDOW.blit(healthText, healthRect)
+        if self.isPlayable:
+            healthText = get_font(30).render(f'Health:{self.health} ', True, "Red")
+            healthRect = healthText.get_rect(center=(160,25))
+            GAME_WINDOW.blit(healthText, healthRect)
 
     def ammoDisplay(self):
-        ammoText = get_font(30).render(f'Ammo:{self.ammo} ', True, "White")
-        ammoRect = ammoText.get_rect(center=(WIDTH - 0.1 * WIDTH, HEIGHT - 0.95 * HEIGHT))
-        GAME_WINDOW.blit(ammoText, ammoRect)
+        if self.isPlayable:
+            ammoText = get_font(30).render(f'Ammo:{self.ammo} ', True, "White")
+            ammoRect = ammoText.get_rect(center=(WIDTH - 0.1 * WIDTH, HEIGHT - 0.95 * HEIGHT))
+            GAME_WINDOW.blit(ammoText, ammoRect)
+    
+    def nicknameDisplay(self):
+        nicknameText = get_font(18).render(self.nickname, True, "White")
+        if self.isPlayable:
+            nicknameRect = nicknameText.get_rect(center=(WIDTH / 2 + 20, HEIGHT / 2 - 70))
+        else:
+            nicknameRect = nicknameText.get_rect()
+        GAME_WINDOW.blit(nicknameText, nicknameRect)
+            
 
     def checkIfShooting(self, events, spriteGroup, weapon):
             for event in events:
@@ -232,7 +251,12 @@ class Player(pygame.sprite.Sprite):
             if bullet.rect.colliderect(self.rect.centerx, self.rect.centery, self.rect.height, self.rect.width) and bullet.shooter != self.nickname:
                 self.health -= 1
                 BULLETS_ON_MAP.remove(bullet)
-                spriteGroup.remove(self)
+                spriteGroup.remove(bullet)
+
+    def checkForHealth(self):
+        if self.health == 0 and self in PLAYERS_ON_MAP:
+            spriteGroup.remove(self)
+            PLAYERS_ON_MAP.remove(self)
 
 def mapDraw(): #WATCH TUTORIAL      
     for tiles in TMX_DATA.layers:
@@ -323,6 +347,7 @@ def drawWindow(events, spriteGroup, weapon):
     spriteGroup.update() #inherited from pygame.sprites.Group()
     spriteGroup.cameraDraw(player1) #the custom thing i did
     player1.updatePlayer(events, spriteGroup, weapon) #keeps track of inputs
+    player2.updatePlayer(events, spriteGroup, weapon)
 
 def drawCrosshair():
     x, y = pygame.mouse.get_pos()
@@ -332,7 +357,10 @@ def drawCrosshair():
     pygame.draw.rect(GAME_WINDOW, (255,0,0), [x, y - 12 , 4, 10])
 
 mapDraw()
-player1 = Player((1000, 900), spriteGroup)
+player1 = Player((1000, 900), spriteGroup, "PlayerOne")
+player2 = Player((0, 900), spriteGroup, "TEST")
+player1.isPlayable = True
+player2.speed = 5               ##DEBUGGING PURPOSES
 testObject1 = ObjectBarrel((200, 200), spriteGroup)
 OBJECTS.append(testObject1)#saving the barrel in a list tocheck for collisions, ideally this will be a lit of static objects and even more ideally we can check only for the close ones in the Player object
 testWeapon1 = Weapon((300, 300), spriteGroup)

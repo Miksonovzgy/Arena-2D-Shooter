@@ -1,0 +1,11 @@
+for the player:
+    - pos (Vector2)
+    - nickname (ONLY ONCE)
+    - hasWeapon
+    - "I created bullets"
+
+bullets:
+    - pos
+    
+
+
