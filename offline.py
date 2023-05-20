@@ -85,6 +85,7 @@ class Player(pygame.sprite.Sprite):
         self.position = pygame.math.Vector2() #movement physics is a bit changed now, i think its smoother
         self.speed = 30
         self.weapon = False
+        self.weaponId = 0
         self.ammo = 500
         self.health = 3
         self.nickname = nickname
@@ -115,6 +116,12 @@ class Player(pygame.sprite.Sprite):
             self.imagesAnimationRight.append(image)
 
         self.image = self.imagesAnimationUp[self.imageIndex]
+
+        if not self.isPlayable:
+            self.rect.x = pos[0]
+            self.rect.y = pos[1]
+
+
     
     def playerInput(self, x = 0, y = 0): #new way of calculatng movement and next position, this implementation might be usefull for the UDP 
         keys = pygame.key.get_pressed()
@@ -172,10 +179,11 @@ class Player(pygame.sprite.Sprite):
                 self.image = self.imagesAnimationRight[self.imageIndex]
                 self.animationCooldown = 0
 
-    def updatePlayer(self, events, spriteGroup, weapon):
+    def updatePlayer(self, events, spriteGroup):
+
+        self.checkIfShooting(events, spriteGroup)
         self.playerInput(1, 0)
         self.animations()
-        self.checkIfShooting(events, spriteGroup, weapon)
         self.checkForHits()
         self.checkForHealth()
         self.healthDisplay()
@@ -203,20 +211,27 @@ class Player(pygame.sprite.Sprite):
         self.rect.center += position * speed #pretty much this is the thing that moves the character
 
 
-    def checkForWeaponDetection(self, events, weapon):
+    def checkForWeaponDetection(self, events):
         for event in events:
-            if testWeapon1.rect.colliderect(self.rect.x + 20, self.rect.y + 20, self.rect.height + 20, self.rect.width + 20) and event.type == pygame.KEYDOWN and self.weapon != True:
-                if(event.key == pygame.K_e):
-                    self.weapon = True
+            for weapon in WEAPONS_ON_MAP:
+                if (weapon.rect.colliderect(self.rect.x + 20, self.rect.y + 20, self.rect.height + 20, self.rect.width + 20) and event.type == pygame.KEYDOWN and self.weapon != True and weapon.owner == ""):
+                    if (event.key == pygame.K_e):
+                        self.weapon = True
+                        self.weaponId = weapon.id
+                        print(f"WEAPON {weapon.id} OWNED")
+                        weapon.owner = self.nickname
             
-            if self.weapon == True and event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_q:
-                    self.weapon = False
-                  
-        if self.weapon:
-            weapon.rotateWeapon()
-            weapon.rect.x = self.rect.x + 35
-            weapon.rect.y = self.rect.y + 35
+                if self.weapon == True and event.type == pygame.KEYDOWN and self.weaponId == weapon.id:
+                    if event.key == pygame.K_q:
+                        self.weapon = False
+                        self.weaponId = 0
+                        weapon.owner = ""
+                        print(f' WEAPON {weapon.id} JUST GO DISOWNED')
+  
+                #if self.weapon and weapon.owner == self.nickname:
+                 #   weapon.rotateWeapon()
+                  #  weapon.rect.x = self.rect.x + 35
+                   # weapon.rect.y = self.rect.y + 35
 
     def healthDisplay(self):
         if self.isPlayable:
@@ -234,17 +249,19 @@ class Player(pygame.sprite.Sprite):
         nicknameText = get_font(18).render(self.nickname, True, "White")
         if self.isPlayable:
             nicknameRect = nicknameText.get_rect(center=(WIDTH / 2 + 20, HEIGHT / 2 - 70))
+            print(self.rect.x, self.rect.y)
         else:
             nicknameRect = nicknameText.get_rect()
         GAME_WINDOW.blit(nicknameText, nicknameRect)
             
 
-    def checkIfShooting(self, events, spriteGroup, weapon):
+    def checkIfShooting(self, events, spriteGroup):
             for event in events:
-                if event.type == pygame.MOUSEBUTTONDOWN and self.ammo > 0 and self.weapon:
-                    bullet = Bullet(weapon.rect.x, weapon.rect.y, spriteGroup, self.nickname)
-                    BULLETS_ON_MAP.append(bullet)
-                    self.ammo -= 1
+                for weapon in WEAPONS_ON_MAP:
+                    if event.type == pygame.MOUSEBUTTONDOWN and self.ammo > 0 and self.weapon and weapon.id == self.weaponId:
+                        bullet = Bullet(weapon.rect.x, weapon.rect.y, spriteGroup, self.nickname)
+                        BULLETS_ON_MAP.append(bullet)
+                        self.ammo -= 1
                 
     def checkForHits(self):
         for bullet in BULLETS_ON_MAP:
@@ -272,11 +289,13 @@ if sys.platform == "win32":
     ctypes.windll.user32.ShowWindow(HWND, SW_MAXIMIZE)
 
 class Weapon(pygame.sprite.Sprite): #IMPORTANT, write this thing in the brackets it is the inherentence thing you were talking about
-    def __init__(self, pos, group):
+    def __init__(self, pos, group, id):
         super().__init__(group) #IMPORTANT, RLY IMPORTANT without this line in the object, this implementation doesnt work
         self.image = pygame.image.load('sprites/weapons/pistol3.png')
         self.image_original = pygame.transform.scale(self.image, WEAPON_SIZE)
         self.rect = self.image.get_rect(center=pos)
+        self.owner = ""
+        self.id = id
         WEAPONS_ON_MAP.append(self)
         
     def rotateWeapon(self):
@@ -285,6 +304,13 @@ class Weapon(pygame.sprite.Sprite): #IMPORTANT, write this thing in the brackets
         angle = math.degrees(math.atan2(dy, dx))
         self.image = pygame.transform.rotate(self.image_original, angle)
         self.rect = self.image.get_rect(center=self.rect.center)
+    
+    def updateWeaponPosition(self):
+        for player in PLAYERS_ON_MAP:
+            if player.nickname == self.owner and player.weapon:
+                self.rotateWeapon()
+                self.rect.x = player.rect.x + 35
+                self.rect.y = player.rect.y + 35
 
 class Bullet(pygame.sprite.Sprite):
     def __init__(self, pos_x, pos_y, group, shooter):
@@ -305,9 +331,9 @@ class Bullet(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(center=self.rect.center)
 
 
-        angle_to_move = math.atan2(mouse_y - HEIGHT/2, mouse_x - WIDTH/2)
-        self.dx = math.cos(angle_to_move) * self.bullet_speed
-        self.dy = math.sin(angle_to_move) * self.bullet_speed
+        self.angle_to_move = math.atan2(mouse_y - HEIGHT/2, mouse_x - WIDTH/2)
+        self.dx = math.cos(self.angle_to_move) * self.bullet_speed
+        self.dy = math.sin(self.angle_to_move) * self.bullet_speed
 
     def move(self):
         self.position.x += self.dx
@@ -323,14 +349,11 @@ class Bullet(pygame.sprite.Sprite):
                 BULLETS_ON_MAP.remove(self)
                 spriteGroup.remove(self)
 
-    #todo cause im too tired rn
+    
     def checkForCollisionWithBorder(self):
         if (self.rect.x >= 31 * TILE_SIZE[0]) or (self.rect.x <= 0) or (self.rect.y >= 31 * TILE_SIZE[1]) or (self.rect.y <= 0):
             BULLETS_ON_MAP.remove(self)
-            spriteGroup.remove(self)
-    #ENDtodo
-    
-
+            spriteGroup.remove(self)    
 
 class ObjectBarrel(pygame.sprite.Sprite):
     def __init__(self, pos, group):
@@ -342,12 +365,15 @@ class ObjectBarrel(pygame.sprite.Sprite):
 def drawWindow(events, spriteGroup, weapon):
     for bullet in BULLETS_ON_MAP:
         bullet.move()
+    
+    for weapon in WEAPONS_ON_MAP:
+        weapon.updateWeaponPosition()
 
     GAME_WINDOW.blit(BG, (0,0))
     spriteGroup.update() #inherited from pygame.sprites.Group()
     spriteGroup.cameraDraw(player1) #the custom thing i did
-    player1.updatePlayer(events, spriteGroup, weapon) #keeps track of inputs
-    player2.updatePlayer(events, spriteGroup, weapon)
+    player1.updatePlayer(events, spriteGroup) #keeps track of inputs
+    player2.updatePlayer(events, spriteGroup)
 
 def drawCrosshair():
     x, y = pygame.mouse.get_pos()
@@ -363,7 +389,10 @@ player1.isPlayable = True
 player2.speed = 5               ##DEBUGGING PURPOSES
 testObject1 = ObjectBarrel((200, 200), spriteGroup)
 OBJECTS.append(testObject1)#saving the barrel in a list tocheck for collisions, ideally this will be a lit of static objects and even more ideally we can check only for the close ones in the Player object
-testWeapon1 = Weapon((300, 300), spriteGroup)
+testWeapon1 = Weapon((300, 300), spriteGroup, 1)
+testWeapon2 = Weapon((900, 900), spriteGroup, 2)
+testWeapon3 = Weapon((500, 500), spriteGroup, 3)
+testWeapon4 = Weapon((700, 700), spriteGroup, 4)
 
 def main():
     clock = pygame.time.Clock()
@@ -380,7 +409,7 @@ def main():
                 run = False
     
 
-        player1.checkForWeaponDetection(events, testWeapon1)#this can be called in the update player function in the object itself i think
+        player1.checkForWeaponDetection(events)#this can be called in the update player function in the object itself i think
 
         drawWindow(events, spriteGroup, testWeapon1)
         drawCrosshair()

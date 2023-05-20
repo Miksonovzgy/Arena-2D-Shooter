@@ -1,0 +1,57 @@
+Handshake:
+    SERVER: Prompt for the username: "NAME?\n"
+    CLIENT: "NAME: <username>\n"
+    SERVER: "INFO: \n"   (client creates and draws the map based on this info ++ stores it internally)
+
+    Class InfoHandshake():
+        def init(): (HANDSHAKE)
+            self.weapons = [Dictionary for each weapon on the map]
+            self.players = [SAME] -- The server automatically calculates the position for YOUR player (spawn position)
+            self.objects = [SAME] -- INFO about objects
+            self.bullets = [SAME] -- SAME
+
+Continuous info:
+- Each client sends the info (whichParameters.txt) to the server
+- Then they receive the parameters about the every object on the map and update their data BASED ON THOSE PARAMETERS
+
+For when new player joins:
+
+- Server appends the Player list with the new clients info (ip, port, username)
+- Server creates the info Handshake object of the new Player
+- Server sends the big Info handshake object to the player THAT JUST JOINED (only)
+- Server broadasts the NEW_PLAYER Dictionary to EVERYONE but that player
+- Client receives this message and CREATES a new PLAYER object 
+
+FOr when a player disconnects:
+
+-Server sends the info that <nickname (just string)> has disconnected 
+-Each client compares the nickname to the list they got and remove and appropriate player object (MAKE SURE SO THAT WEAPON STAYS IN PLACE)
+
+
+
+
+LIST of COMMANDS:
+
+NAME: <username>\n - CLIENT
+MAP_INFO: <HandshakeInfo object> - SERVER
+NEW_PLAYER: <new_player Dictionary = same as HandshakeInfo Player:object> - SERVER
+CLIENT_INFO: <big not handshake info object> - CLIENT
+UPDATE_STATE: <big not handshake info object> - SERVER
+PLAYER_DISCONNECTED: <nickname> - SERVER
+
+
+
+TODO:
+Mikołaj - make ALL of the functions so that they can properly work with the given parameters
+Mikołaj - client
+
+Teodor - Server
+
+
+
+
+
+ 
+
+
+

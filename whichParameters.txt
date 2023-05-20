@@ -1,11 +1,28 @@
-for the player:
-    - pos (Vector2)
-    - nickname (ONLY ONCE)
-    - hasWeapon
-    - "I created bullets"
+CLIENT TO SERVER:
 
-bullets:
-    - pos
-    
+    for the player:
+        - pos (Vector2)
+        - nickname (ONLY ONCE) - DURING THE HANDSHAKE
+        - hasWeapon / prolly not
+        - "I created bullets"
+        - WeaponID
+
+    weapon:
+        -WeaponID
+        -position (rect.x, rect.y)
+        -angle of rotation
+
+    bullets:
+        - pos
+        - angle will be taken from weapon info Dictionary
+
+    object:
+        - only during the handshake:
+
+dont send client's info to itself
+
+
+
+
 
 
