@@ -1,6 +1,7 @@
 import pygame, sys
 from button import Button
 import subprocess
+from inputBox import InputBox
 
 pygame.init()
 
@@ -8,12 +9,19 @@ SCREEN = pygame.display.set_mode((1280, 720), pygame.RESIZABLE)
 pygame.display.set_caption("Menu")
 
 BG = pygame.image.load("assets/backgrounds/Background.png")
+Input_Box = InputBox()
 
 def get_font(size): # Returns Press-Start-2P in the desired size
     return pygame.font.Font("assets/font.ttf", size)
 
 def play():
-    subprocess.run(['python', 'offline.py'])
+    SCREEN.fill("white")
+
+    Input_Box.startInput()
+    
+    
+    
+    #subprocess.run(['python', 'offline.py'])
    # quit()
     
 def options():
