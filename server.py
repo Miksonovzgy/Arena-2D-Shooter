@@ -77,7 +77,8 @@ def broadcast():
                     serverInfoToBeSend = pickle.dumps(serverInfo)
                     server.sendto(serverInfoToBeSend, clients[index])
                 if player.protocol == "DISCONNECT":
-                    disconnectObject = infoObjects.disconnectionObject(player.nickname, player.protocol)
+                    disconnectObject = pickle.dumps(infoObjects.disconnectionObject(player.nickname, player.protocol))
+                    server.sendall(disconnectObject)
                 else:
                     player.protocol = "UPDATE_STATE"
                     playerObject = pickle.dumps(player)
@@ -92,6 +93,6 @@ def main ():
 
     t1.start()
     t2.start()
-    
+
 if __name__ == "__main__":
     main()
