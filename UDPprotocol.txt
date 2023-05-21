@@ -1,5 +1,4 @@
 Handshake:
-    SERVER: Prompt for the username: "NAME?\n"
     CLIENT: "NAME: <username>\n"
     SERVER: "INFO: \n"   (client creates and draws the map based on this info ++ stores it internally)
 
@@ -28,6 +27,10 @@ FOr when a player disconnects:
 -Each client compares the nickname to the list they got and remove and appropriate player object (MAKE SURE SO THAT WEAPON STAYS IN PLACE)
 
 
+IMPORTANT, NEW IDEA: THE SERVER HAS A LIST OF INFO OBJECTS FOR EACH PLAYER WHICH IT WILL SEND WHEN A CONNECTION IS ESTABLISHED.
+THEN IT SENDS THE NEW INFO OBJECT FOR THE NEW PLAYER TO ALL THE OTHER PLAYERS
+IT WILL ALSO HAVE AN INFO OBJECT ABOUT THE MAP WHICH WILL TELL THE PLAYER HOW TO GENERATE THE MAP AND THE OBJECTS
+PLEASE CHECK infoObjects.py FOR MORE CONTEXT
 
 
 LIST of COMMANDS:
