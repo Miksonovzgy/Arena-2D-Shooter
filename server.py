@@ -30,7 +30,7 @@ def recieve():
 def setPlayerInfo(index, nickname, protocol):
     playerObject = infoObjects.infoPlayerObject((index*200, index*100), GROUP, nickname, protocol) #here the sprite group string will be used as the value for the sprite group, you just have to destringify it
     players.append(playerObject)
-    print(f"Players appended with: {playerObject}")
+    #print(f"Players appended with: {playerObject}")
 
 def setObjects(): #NEEDS TO BE UPDATED WHEN WE CHANGE UP THE MAP A BIT
     barrelObject = infoObjects.infoObjectObject(BARREL_POSITION, GROUP)
@@ -53,13 +53,17 @@ def handleClientInfo():
             usernames.append(nickname)
             clients.append(adr)
             index = clients.index(adr)
-            print(index)
+            #print(index)
             setPlayerInfo(index, nickname, "NEW_PLAYER")   
-            print(f'USERNAMES: {usernames}') 
+            #print(f'USERNAMES: {usernames}') 
         if messageObject.protocol == "CLIENT_INFO": #THIS WILL GIVE YOU A GOOD IDEA HOW THE BIG INFO OBJECT NEEDS TO LOOK
-            index = usernames.index(messageObject.nickname) 
+            index = usernames.index(messageObject.nickname)
+            print(players[index], messageObject.pos) 
             players[index].pos = messageObject.pos
+            print(players[index], players[index].pos)
+            print("yo")
             for bullet in messageObject.bulletsShot:
+                print("yo1")
                 bullets.append(bullet)
              #needs to be cleared after every time we send info to clients for the bullets
             #for weapon in messageObject.weaponList:
@@ -77,7 +81,7 @@ def broadcast():
             for player in players:
                 if player.protocol == "NEW_PLAYER":
                     index = players.index(player)
-                    serverInfo = infoObjects.generalServerInfo("HANDSHAKE", players, map, objects, weapons, bullets) ##HERE I REMOVED THE player.nickname PARAMETER BETWEEN PLAYERS AND MAP
+                    serverInfo = infoObjects.generalServerInfo("HANDSHAKE", players, objects, weapons, bullets) ##HERE I REMOVED THE player.nickname PARAMETER BETWEEN PLAYERS AND MAP
                     serverInfoToBeSend = pickle.dumps(serverInfo)
                     player.protocol = "OTHER"
                     server.sendto(serverInfoToBeSend, clients[index])
@@ -87,7 +91,7 @@ def broadcast():
                 else:
                     player.protocol = "UPDATE_STATE"
                     #playerObject = pickle.dumps(player)
-                    serverInfo = infoObjects.generalServerInfo("UPDATE_STATE", players, map, objects, weapons, bullets) ##HERE I REMOVED THE player.nickname PARAMETER BETWEEN PLAYERS AND MAP
+                    serverInfo = infoObjects.generalServerInfo("UPDATE_STATE", players, objects, weapons, bullets) ##HERE I REMOVED THE player.nickname PARAMETER BETWEEN PLAYERS AND MAP
                     sendingQueue.put(serverInfo)
                     for client in clients:
                         if players[clients.index(client)].protocol != "NEW_PLAYER" and len(players) >= 1 and not sendingQueue.empty():

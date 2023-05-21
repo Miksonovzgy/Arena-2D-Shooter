@@ -12,8 +12,6 @@ import socket
 import threading
 import queue
 
-
-
 pygame.init()
 OBJECTS = []
 FPS = 60
@@ -60,7 +58,6 @@ class ClientSide():
 
     def handleIncomingInfoHandshake(self):
         infoFromServer = self.receiveHandshake()
-
         if len(PLAYERS_ON_MAP) == 0:
             for newPlayer in infoFromServer.playerList:
                 newPlayer = Player(newPlayer.pos, spriteGroup, newPlayer.nickname)
@@ -76,8 +73,7 @@ class ClientSide():
         
         if len(BULLETS_ON_MAP) == 0:
             for newBullet in infoFromServer.bulletList:
-                nweBullet = Bullet(newBullet.posX, newBullet.posY, spriteGroup, newBullet.shooter)
-        
+                newBullet = Bullet(newBullet.posX, newBullet.posY, spriteGroup, newBullet.shooter)
         #print(PLAYERS_ON_MAP)
         #print(OBJECTS)
         #print(WEAPONS_ON_MAP)
@@ -96,7 +92,7 @@ class ClientSide():
 
                 if updateInfo.protocol == "UPDATE_STATE":
                     #print("got it")
-                    print(f'UPDATED INFO GOTTEN:{updateInfo}')
+                    #print(f'UPDATED INFO GOTTEN:{updateInfo}')
                     for player in PLAYERS_ON_MAP:
                         for newPlayerInfo in updateInfo.playerList:
                             if player.nickname == newPlayerInfo.nickname:
@@ -111,15 +107,11 @@ class ClientSide():
                             if weapon.id == newWeaponInfo.id:
                                 weapon.owner = newWeaponInfo.owner
                     
-
-                            
-
-
-
     def sendInfoToServer(self, ourPlayer):
         while True:
             ourPlayerInfo = infoObjects.generalClientInfo("CLIENT_INFO", ourPlayer.position, ourPlayer.nickname, MY_BULLETS_ON_MAP)
-            print(f'UPDATED INFO SENT: {ourPlayerInfo}')
+            #print(f'UPDATED INFO SENT: {ourPlayerInfo}')
+            #print(ourPlayer.position, ourPlayer.nickname, MY_BULLETS_ON_MAP)
             ourPlayerInfoObject = pickle.dumps(ourPlayerInfo)
             sendingQueue.put(ourPlayerInfoObject)
             #print("PUT MESSAGE TO THE QUEUE")
@@ -129,13 +121,10 @@ class ClientSide():
                 messageToSend = sendingQueue.get()
                 self.client.sendto(messageToSend, self.address)
                 #print("sent")
-
-
 client = ClientSide()
 nickname = "mikołaj1" #input("Input Nickname: ")
 
 TMX_DATA = load_pygame(f'map{MAP_INDEX}Test.tmx') #IMPORTANT: dont forget to change map collisions after chaning the map
-
 
 class CameraGroup(pygame.sprite.Group): #this essentially draws the screen and what you are seeing right now, hence why it has replaced every image creation
     def __init__(self):                 #STRONGLY RECOMMEND: SEE HOW I MAKE IMAGES WITH THIS AND MAKE THE OTHER OBJECTS THE SAME WAY
@@ -147,7 +136,7 @@ class CameraGroup(pygame.sprite.Group): #this essentially draws the screen and w
         self.cameraRect = pygame.Rect(200, 100, self.displayScreen.get_size()[0] - (200 + 200), self.displayScreen.get_size()[1] - (100 + 100)) #TO DO: replace with constants
 
     def cameraDraw(self, player): #this is the important stuff, im essentially modyfing the draw function here
-
+        print("yp1")
         self.offset.x = player.rect.centerx - self.cameraX
         self.offset.y = player.rect.centery - self.cameraY #this is for centering
 
@@ -163,16 +152,13 @@ class Tile(pygame.sprite.Sprite): #WATCH TUTORIAL
         self.image = surf
         self.rect = self.image.get_rect(topleft = pos)
 def mapDraw(): #WATCH TUTORIAL      
+    print("yo")
     for tiles in TMX_DATA.layers:
         if hasattr(tiles, 'data'):
             for x,y,surf in tiles.tiles():
                 pos = (x * TILE_SIZE[0], y * TILE_SIZE[1])
                 Tile(pos = pos, surf = surf, group = spriteGroup)#tileSpriteGroup)
-mapDraw()
-
-    
-
-client = ClientSide()
+mapDraw()    
 nickname = "mikołaj1" #input("Input Nickname: ")
 
 #NOT NEEDED FOR NOW
@@ -503,7 +489,7 @@ def drawCrosshair():
     pygame.draw.rect(GAME_WINDOW, (255,0,0), [x, y + 6 , 4, 10])
     pygame.draw.rect(GAME_WINDOW, (255,0,0), [x, y - 12 , 4, 10])
 
-mapDraw()
+
 client.sendHandshake(nickname)
 client.handleIncomingInfoHandshake()
 
@@ -513,40 +499,43 @@ for player in PLAYERS_ON_MAP:
         ourPlayer = player
 
 
-
 threadIncoming = threading.Thread(target = client.handleIncomingServerInfoUpdate)
-#threadIncoming.start()
-#
 
 
 #time.sleep(1)
+print("haha")
+threadOutcoming = threading.Thread(target = client.sendInfoToServer, args = ourPlayer)
+print("wtf")
 
-threadOutcoming = threading.Thread(target = client.sendInfoToServer(ourPlayer))
-#threadOutcoming.start()
+def mainGameLoop():
+        clock = pygame.time.Clock()
+        run = True
+        while run:
+            clock.tick(FPS)
+            events = pygame.event.get()  
+
+
+            for event in events:
+                if event.type == pygame.QUIT:
+                    run = False
+    
+            for player in PLAYERS_ON_MAP:
+                player.checkForWeaponDetection(events)#this can be called in the update player function in the object itself i think
+
+            drawWindow(events, spriteGroup)
+            drawCrosshair()
+            pygame.display.update()
+
+
 
 def main():
-    clock = pygame.time.Clock()
-    run = True
+    threadIncoming.start()
+    threadOutcoming.start()
     #mapDraw()
 
     pygame.mouse.set_visible(False)
     #spriteGroup.add(BG)
-    while run:
-        clock.tick(FPS)
-        events = pygame.event.get()  
-
-
-        for event in events:
-            if event.type == pygame.QUIT:
-                run = False
-    
-        for player in PLAYERS_ON_MAP:
-            player.checkForWeaponDetection(events)#this can be called in the update player function in the object itself i think
-
-        drawWindow(events, spriteGroup)
-        drawCrosshair()
-        pygame.display.update()
-
+    mainGameLoop()
              
     pygame.quit()
     sys.exit()
@@ -554,6 +543,4 @@ def main():
 
 
 if __name__ == "__main__":
-    threadIncoming.start()
-    threadOutcoming.start()
     main()

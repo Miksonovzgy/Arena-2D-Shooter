@@ -1,11 +1,10 @@
 class generalServerInfo():
-    def __init__(self, protocolMessage, playerList,map, objectList, weaponList, bulletList):
+    def __init__(self, protocolMessage, playerList, objectList, weaponList, bulletList):
         self.protocol = protocolMessage#* #THIS IS A LIST OF INFOOBJECTS FOR THE PLAYERS THAT ARE IN
         self.playerList = playerList
         self.objectList = objectList #AGAIN, LIST OF "OBJECT" OBJECTS
         self.weaponList = weaponList #I THINK YOU GET IT BY THIS POINT
         self.bulletList = bulletList #ITS GETTING KINDA OBVIOUS AT THIS POINT
-        self.map = map
 
 #* WE WILL ONLY BE SENDING OBJECTS WITH OUR CLIENTS AND SERVER (NOTE: EVEN WHEN ESTABLISHING CONNECTION YOU SHOULD SEND AN OBJECT FOR THIS TO WORK FULLY)
 #THEREFORE, TO DISTINGUISH THE PROTOCOL EXECTUION WE ONLY NEED TO DO 1 SIMPLE THING
