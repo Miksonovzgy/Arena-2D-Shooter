@@ -88,14 +88,15 @@ class ClientSide():
             message, _ = self.client.recvfrom(1024)
             infoFromServer = pickle.loads(message)
             updateMessages.put(infoFromServer)
-            print("LISTENING FOR UPDATES")
+            #print("LISTENING FOR UPDATES")
 
             if not updateMessages.empty():
                 updateInfo = updateMessages.get()
-                print("GOT UPDATE")
+                #print("GOT UPDATE")
 
                 if updateInfo.protocol == "UPDATE_STATE":
-                    print("got it")
+                    #print("got it")
+                    print(f'UPDATED INFO GOTTEN:{updateInfo}')
                     for player in PLAYERS_ON_MAP:
                         for newPlayerInfo in updateInfo.playerList:
                             if player.nickname == newPlayerInfo.nickname:
@@ -118,6 +119,7 @@ class ClientSide():
     def sendInfoToServer(self, ourPlayer):
         while True:
             ourPlayerInfo = infoObjects.generalClientInfo("CLIENT_INFO", ourPlayer.position, ourPlayer.nickname, MY_BULLETS_ON_MAP)
+            print(f'UPDATED INFO SENT: {ourPlayerInfo}')
             ourPlayerInfoObject = pickle.dumps(ourPlayerInfo)
             sendingQueue.put(ourPlayerInfoObject)
             #print("PUT MESSAGE TO THE QUEUE")
@@ -167,35 +169,8 @@ def mapDraw(): #WATCH TUTORIAL
                 pos = (x * TILE_SIZE[0], y * TILE_SIZE[1])
                 Tile(pos = pos, surf = surf, group = spriteGroup)#tileSpriteGroup)
 mapDraw()
-class ClientSide():
-    def __init__(self):
-        self.client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.server = "localhost"
-        self.port = 9999
-        self.address = (self.server, self.port)
+
     
-    def sendHandshake(self, nickname):
-        newPlayerInfo = infoObjects.disconnectionObject(nickname, "NAME")
-        newPlayerObject = pickle.dumps(newPlayerInfo)
-        print(newPlayerObject)
-        self.client.sendto(newPlayerObject, self.address)
-
-    def receiveHandshake(self):
-        print("b")
-        message, _ = self.client.recvfrom(1024)
-        infoFromServer = pickle.loads(message)
-        print(infoFromServer)
-        return infoFromServer
-
-    def handleIncomingInfoHandshake(self):
-        infoFromServer = self.receiveHandshake()
-        print(f"received: {infoFromServer}")
-        if len(PLAYERS_ON_MAP) == 0:
-            for newPlayer in infoFromServer.playerList:
-                newPlayer = Player(newPlayer.pos, spriteGroup, newPlayer.nickname)
-    
-
-
 
 client = ClientSide()
 nickname = "mikołaj1" #input("Input Nickname: ")
@@ -540,14 +515,14 @@ for player in PLAYERS_ON_MAP:
 
 
 threadIncoming = threading.Thread(target = client.handleIncomingServerInfoUpdate)
-threadIncoming.start()
+#threadIncoming.start()
+#
 
 
-
-time.sleep(1)
+#time.sleep(1)
 
 threadOutcoming = threading.Thread(target = client.sendInfoToServer(ourPlayer))
-threadOutcoming.start()
+#threadOutcoming.start()
 
 def main():
     clock = pygame.time.Clock()
@@ -558,7 +533,8 @@ def main():
     #spriteGroup.add(BG)
     while run:
         clock.tick(FPS)
-        events = pygame.event.get()    
+        events = pygame.event.get()  
+
 
         for event in events:
             if event.type == pygame.QUIT:
@@ -578,4 +554,6 @@ def main():
 
 
 if __name__ == "__main__":
+    threadIncoming.start()
+    threadOutcoming.start()
     main()
