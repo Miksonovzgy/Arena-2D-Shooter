@@ -1,3 +1,17 @@
+
+
+
+#####IMPORTANT#####
+#this version is technically ocmpatible with the new client.py however it doesnt work as it should
+
+
+
+
+
+
+
+
+
 import pygame
 import os
 import sys
@@ -10,7 +24,6 @@ import infoObjects
 import pickle
 import socket
 import threading
-import queue
 
 
 pygame.init()
@@ -32,72 +45,7 @@ PLAYERS_ON_MAP = []
 WEAPONS_ON_MAP = []
 MAP_INDEX = 1
 
-updateMessages = queue.Queue()
 
-
-
-class ClientSide():
-    def __init__(self):
-        self.client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.server = "localhost"
-        self.port = 9999
-        self.address = (self.server, self.port)
-    
-    def sendHandshake(self, nickname):
-        newPlayerInfo = infoObjects.disconnectionObject(nickname, "NAME")
-        newPlayerObject = pickle.dumps(newPlayerInfo)
-        self.client.sendto(newPlayerObject, self.address)
-
-    def receiveHandshake(self):
-            message, _ = self.client.recvfrom(1024)
-            infoFromServer = pickle.loads(message)
-            return infoFromServer
-        
-
-    def handleIncomingInfoHandshake(self):
-        infoFromServer = self.receiveHandshake()
-
-        if len(PLAYERS_ON_MAP) == 0:
-            for newPlayer in infoFromServer.playerList:
-                newPlayer = Player(newPlayer.pos, spriteGroup, newPlayer.nickname)
-        
-        if len(OBJECTS) == 0:
-            for newObject in infoFromServer.objectList:
-                newObject = ObjectBarrel(newObject.pos, spriteGroup)
-        
-        if len(WEAPONS_ON_MAP) == 0:
-            for newWeapon in infoFromServer.weaponList:
-                newWeapon = Weapon(newWeapon.posX, newWeapon.posY, spriteGroup, newWeapon.id, newWeapon.owner)
-        
-        if len(BULLETS_ON_MAP) == 0:
-            for newBullet in infoFromServer.bulletList:
-                nweBullet = Bullet(newBullet.posX, newBullet.posY, spriteGroup, newBullet.shooter)
-
-    def handleIncomingServerInfoUpdate(self):
-        while True:
-            message, _ = self.client.recvfrom(1024)
-            infoFromServer = pickle.loads(message)
-            updateMessages.put(infoFromServer)
-
-            if not updateMessages.empty():
-                updateInfo = updateMessages.get()
-
-                if updateInfo.protocol == "UPDATE_STATE":
-                    print("got it")
-                    for player in PLAYERS_ON_MAP:
-                        if updateInfo.nickname == player.nickname:
-                            player.pos = updateInfo.pos
-
-    
-
-    
-
-
-
-client = ClientSide()
-nickname = "mikołaj2" #input("Input Nickname: ")
-
-TMX_DATA = load_pygame(f'map{MAP_INDEX}Test.tmx') #IMPORTANT: dont forget to change map collisions after chaning the map
 
 
 class CameraGroup(pygame.sprite.Group): #this essentially draws the screen and what you are seeing right now, hence why it has replaced every image creation
@@ -346,25 +294,13 @@ class Player(pygame.sprite.Sprite):
             spriteGroup.remove(self)
             PLAYERS_ON_MAP.remove(self)
 
-def mapDraw(): #WATCH TUTORIAL      
-    for tiles in TMX_DATA.layers:
-        if hasattr(tiles, 'data'):
-            for x,y,surf in tiles.tiles():
-                pos = (x * TILE_SIZE[0], y * TILE_SIZE[1])
-                Tile(pos = pos, surf = surf, group = spriteGroup)#tileSpriteGroup)
-
-##To Maximize the Window Size ONLY FOR WINDOWS
-if sys.platform == "win32":
-    HWND = pygame.display.get_wm_info()['window']
-    SW_MAXIMIZE = 3
-    ctypes.windll.user32.ShowWindow(HWND, SW_MAXIMIZE)
 
 class Weapon(pygame.sprite.Sprite): #IMPORTANT, write this thing in the brackets it is the inherentence thing you were talking about
-    def __init__(self, posX, posY, group, id, owner):
+    def __init__(self, pos, group, id):
         super().__init__(group) #IMPORTANT, RLY IMPORTANT without this line in the object, this implementation doesnt work
         self.image = pygame.image.load('sprites/weapons/pistol3.png')
         self.image_original = pygame.transform.scale(self.image, WEAPON_SIZE)
-        self.rect = self.image.get_rect(center=(posX, posY))
+        self.rect = self.image.get_rect(center=pos)
         self.owner = ""
         self.id = id
         WEAPONS_ON_MAP.append(self)
@@ -432,86 +368,5 @@ class ObjectBarrel(pygame.sprite.Sprite):
         self.image = pygame.image.load('sprites\sci-fiPlatform\png\Objects\Barrel (1).png')
         self.image = pygame.transform.scale(self.image, BARREL_SIZE)
         self.rect = self.image.get_rect(topleft = pos)
-        OBJECTS.append(self)
-
-def drawWindow(events, spriteGroup):
-    for bullet in BULLETS_ON_MAP:
-        bullet.move()
-    
-    for weapon in WEAPONS_ON_MAP:
-        weapon.updateWeaponPosition()
 
 
-    GAME_WINDOW.blit(BG, (0,0))
-    spriteGroup.update() #inherited from pygame.sprites.Group()
-    for player in PLAYERS_ON_MAP:
-        player.updatePlayer(events, spriteGroup) #keeps track of inputs
-        if player.isPlayable:
-            spriteGroup.cameraDraw(player) #the custom thing i did
-
-    #player2.updatePlayer(events, spriteGroup)
-
-def drawCrosshair():
-    x, y = pygame.mouse.get_pos()
-    pygame.draw.rect(GAME_WINDOW, (255,0,0), [x + 6, y, 10, 4])
-    pygame.draw.rect(GAME_WINDOW, (255,0,0), [x - 12, y, 10, 4])
-    pygame.draw.rect(GAME_WINDOW, (255,0,0), [x, y + 6 , 4, 10])
-    pygame.draw.rect(GAME_WINDOW, (255,0,0), [x, y - 12 , 4, 10])
-
-mapDraw()
-client.sendHandshake(nickname)
-client.handleIncomingInfoHandshake()
-
-print(PLAYERS_ON_MAP)
-
-
-
-#player1 = Player((1000, 900), spriteGroup, nickname)
-#player2 = Player((0, 900), spriteGroup, "TEST")
-
-for player in PLAYERS_ON_MAP:
-    if(player.nickname == nickname):
-        player.isPlayable = True
-
-
-#player1.isPlayable = True
-#player2.speed = 5               ##DEBUGGING PURPOSES
-#testObject1 = ObjectBarrel((200, 200), spriteGroup)
-#testWeapon1 = Weapon(300, 300, spriteGroup, 1)
-#testWeapon2 = Weapon(900, 900, spriteGroup, 2)
-#testWeapon3 = Weapon(500, 500, spriteGroup, 3)
-#testWeapon4 = Weapon(700, 700, spriteGroup, 4)
-
-threadIncoming = threading.Thread(target = client.handleIncomingServerInfoUpdate)
-threadIncoming.start()
-
-def main():
-    clock = pygame.time.Clock()
-    run = True
-    #mapDraw()
-
-    pygame.mouse.set_visible(False)
-    #spriteGroup.add(BG)
-    while run:
-        clock.tick(FPS)
-        events = pygame.event.get()    
-
-        for event in events:
-            if event.type == pygame.QUIT:
-                run = False
-    
-        for player in PLAYERS_ON_MAP:
-            player.checkForWeaponDetection(events)#this can be called in the update player function in the object itself i think
-
-        drawWindow(events, spriteGroup)
-        drawCrosshair()
-        pygame.display.update()
-
-             
-    pygame.quit()
-    sys.exit()
-
-
-
-if __name__ == "__main__":
-    main()

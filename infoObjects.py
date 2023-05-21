@@ -37,10 +37,12 @@ class infoObjectObject():
         self.group = group
 
 class infoWeaponObject(): #I NEED SOME ASSISTANCE HERE AND FOR THE BULLETS, AS I DONT REALLY KNOW AGAIN WHAT SHOULD BE EXACTLY SEND TO THE PLAYER WHEN HE JOINS AND WHEN THE PICTURE IS DRAWN EVERYTIME
-    def __init__(self, pos, group, id):
-        self.pos = pos
+    def __init__(self, posX, posY, group, id, owner):
+        self.posX = posX
+        self.posY = posY
         self.group = group
         self.id = id
+        self.owner = owner
 
 class infoBulletsObject():
     def __init__(self, posX, posY, group, shooter):
