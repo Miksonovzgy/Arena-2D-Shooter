@@ -154,9 +154,51 @@ class CameraGroup(pygame.sprite.Group): #this essentially draws the screen and w
             self.displayScreen.blit(sprite.image, offsetPosition)
 
 spriteGroup = CameraGroup() #this makes the custom group of sprites
+ #IMPORTANT: dont forget to change map collisions after chaning the map
+class Tile(pygame.sprite.Sprite): #WATCH TUTORIAL
+    def __init__(self, pos, surf: pygame.Surface, group): #,group
+        super().__init__(group) #group
+        self.image = surf
+        self.rect = self.image.get_rect(topleft = pos)
+def mapDraw(): #WATCH TUTORIAL      
+    for tiles in TMX_DATA.layers:
+        if hasattr(tiles, 'data'):
+            for x,y,surf in tiles.tiles():
+                pos = (x * TILE_SIZE[0], y * TILE_SIZE[1])
+                Tile(pos = pos, surf = surf, group = spriteGroup)#tileSpriteGroup)
+mapDraw()
+class ClientSide():
+    def __init__(self):
+        self.client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.server = "localhost"
+        self.port = 9999
+        self.address = (self.server, self.port)
+    
+    def sendHandshake(self, nickname):
+        newPlayerInfo = infoObjects.disconnectionObject(nickname, "NAME")
+        newPlayerObject = pickle.dumps(newPlayerInfo)
+        print(newPlayerObject)
+        self.client.sendto(newPlayerObject, self.address)
+
+    def receiveHandshake(self):
+        print("b")
+        message, _ = self.client.recvfrom(1024)
+        infoFromServer = pickle.loads(message)
+        print(infoFromServer)
+        return infoFromServer
+
+    def handleIncomingInfoHandshake(self):
+        infoFromServer = self.receiveHandshake()
+        print(f"received: {infoFromServer}")
+        if len(PLAYERS_ON_MAP) == 0:
+            for newPlayer in infoFromServer.playerList:
+                newPlayer = Player(newPlayer.pos, spriteGroup, newPlayer.nickname)
+    
 
 
 
+client = ClientSide()
+nickname = "mikołaj1" #input("Input Nickname: ")
 
 #NOT NEEDED FOR NOW
 class Background(pygame.sprite.Sprite):
@@ -173,13 +215,6 @@ class Background(pygame.sprite.Sprite):
 
 def get_font(size): # Returns Press-Start-2P in the desired size
     return pygame.font.Font("assets/font.ttf", size)
-
-
-class Tile(pygame.sprite.Sprite): #WATCH TUTORIAL
-    def __init__(self, pos, surf: pygame.Surface, group): #,group
-        super().__init__(group) #group
-        self.image = surf
-        self.rect = self.image.get_rect(topleft = pos)
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, pos, group, nickname):
@@ -380,13 +415,6 @@ class Player(pygame.sprite.Sprite):
         if self.health == 0 and self in PLAYERS_ON_MAP:
             spriteGroup.remove(self)
             PLAYERS_ON_MAP.remove(self)
-
-def mapDraw(): #WATCH TUTORIAL      
-    for tiles in TMX_DATA.layers:
-        if hasattr(tiles, 'data'):
-            for x,y,surf in tiles.tiles():
-                pos = (x * TILE_SIZE[0], y * TILE_SIZE[1])
-                Tile(pos = pos, surf = surf, group = spriteGroup)#tileSpriteGroup)
 
 ##To Maximize the Window Size ONLY FOR WINDOWS
 if sys.platform == "win32":
