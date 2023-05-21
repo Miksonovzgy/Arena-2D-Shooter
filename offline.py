@@ -31,12 +31,10 @@ MY_BULLETS_ON_MAP = []
 PLAYERS_ON_MAP = []
 WEAPONS_ON_MAP = []
 MAP_INDEX = 1
-
 updateMessages = queue.Queue()
-
 sendingQueue = queue.Queue()
 
-
+NICKNAME = input("Input Nickname: ")
 
 class ClientSide():
     def __init__(self):
@@ -121,12 +119,12 @@ class ClientSide():
                 messageToSend = sendingQueue.get()
                 self.client.sendto(messageToSend, self.address)
                 #print("sent")
+
 client = ClientSide()
-nickname = "mikołaj1" #input("Input Nickname: ")
 
 TMX_DATA = load_pygame(f'map{MAP_INDEX}Test.tmx') #IMPORTANT: dont forget to change map collisions after chaning the map
 
-class CameraGroup(pygame.sprite.Group): #this essentially draws the screen and what you are seeing right now, hence why it has replaced every image creation
+class CameraGroup(pygame.sprite.Group): 
     def __init__(self):                 #STRONGLY RECOMMEND: SEE HOW I MAKE IMAGES WITH THIS AND MAKE THE OTHER OBJECTS THE SAME WAY
         super().__init__()
         self.displayScreen = pygame.display.get_surface()
@@ -136,7 +134,7 @@ class CameraGroup(pygame.sprite.Group): #this essentially draws the screen and w
         self.cameraRect = pygame.Rect(200, 100, self.displayScreen.get_size()[0] - (200 + 200), self.displayScreen.get_size()[1] - (100 + 100)) #TO DO: replace with constants
 
     def cameraDraw(self, player): #this is the important stuff, im essentially modyfing the draw function here
-        print("yp1")
+
         self.offset.x = player.rect.centerx - self.cameraX
         self.offset.y = player.rect.centery - self.cameraY #this is for centering
 
@@ -144,7 +142,7 @@ class CameraGroup(pygame.sprite.Group): #this essentially draws the screen and w
             offsetPosition = sprite.rect.topleft - self.offset
             self.displayScreen.blit(sprite.image, offsetPosition)
 
-spriteGroup = CameraGroup() #this makes the custom group of sprites
+spriteGroup = CameraGroup() 
  #IMPORTANT: dont forget to change map collisions after chaning the map
 class Tile(pygame.sprite.Sprite): #WATCH TUTORIAL
     def __init__(self, pos, surf: pygame.Surface, group): #,group
@@ -159,20 +157,13 @@ def mapDraw(): #WATCH TUTORIAL
                 pos = (x * TILE_SIZE[0], y * TILE_SIZE[1])
                 Tile(pos = pos, surf = surf, group = spriteGroup)#tileSpriteGroup)
 mapDraw()    
-nickname = "mikołaj1" #input("Input Nickname: ")
 
-#NOT NEEDED FOR NOW
 class Background(pygame.sprite.Sprite):
     def __init__(self, group):
         super().__init__(group)
         self.image = pygame.image.load("sprites\sci-fiPlatform\png\Tiles\Acid (2).png")
         self.image = pygame.transform.scale(BG,(WIDTH, HEIGHT))
         self.rect = self.image.get_rect()
-
-#BG = Background(spriteGroup)
-
-#tileSpriteGroup = pygame.sprite.Group()
-
 
 def get_font(size): # Returns Press-Start-2P in the desired size
     return pygame.font.Font("assets/font.ttf", size)
@@ -187,7 +178,7 @@ class Player(pygame.sprite.Sprite):
         self.imagesAnimationRight = []
         self.imageIndex = 0
         self.animationCooldown = 0
-        self.position = pygame.math.Vector2() #movement physics is a bit changed now, i think its smoother
+        self.position = pygame.math.Vector2() 
         self.speed = 30
         self.weapon = False
         self.weaponId = 0
@@ -474,9 +465,10 @@ def drawWindow(events, spriteGroup):
     spriteGroup.update() #inherited from pygame.sprites.Group()
     for player in PLAYERS_ON_MAP:
         player.updatePlayer(events, spriteGroup, player.position.x, player.position.y) #keeps track of inputs
-        if(player.nickname == nickname):
+        if(player.nickname == NICKNAME):
             player.isPlayable = True
         if player.isPlayable:
+            print(player.nickname)
             spriteGroup.cameraDraw(player) #the custom thing i did
 
 
@@ -490,12 +482,12 @@ def drawCrosshair():
     pygame.draw.rect(GAME_WINDOW, (255,0,0), [x, y - 12 , 4, 10])
 
 
-client.sendHandshake(nickname)
+client.sendHandshake(NICKNAME)
 client.handleIncomingInfoHandshake()
 
 
 for player in PLAYERS_ON_MAP:
-    if player.nickname == nickname:
+    if player.nickname == NICKNAME:
         ourPlayer = player
 
 
@@ -536,7 +528,7 @@ def main():
     pygame.mouse.set_visible(False)
     #spriteGroup.add(BG)
     mainGameLoop()
-             
+
     pygame.quit()
     sys.exit()
 
