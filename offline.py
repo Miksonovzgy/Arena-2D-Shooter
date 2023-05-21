@@ -6,6 +6,10 @@ import time
 from pytmx.util_pygame import load_pygame
 import random
 import math
+import infoObjects
+import pickle
+import socket
+import threading
 
 
 pygame.init()
@@ -25,7 +29,42 @@ TILE_SIZE = [128, 120]
 BULLETS_ON_MAP = []
 PLAYERS_ON_MAP = []
 WEAPONS_ON_MAP = []
-TMX_DATA = load_pygame('map1Test.tmx') #IMPORTANT: dont forget to change map collisions after chaning the map
+MAP_INDEX = 1
+
+
+
+class ClientSide():
+    def __init__(self):
+        self.client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.server = "localhost"
+        self.port = 9999
+        self.address = (self.server, self.port)
+    
+    def sendHandshake(self, nickname):
+        newPlayerInfo = infoObjects.disconnectionObject(nickname, "NAME")
+        newPlayerObject = pickle.dumps(newPlayerInfo)
+        self.client.sendto(newPlayerObject, self.address)
+
+    def receiveHandshake(self):
+        message, _ = self.client.recvfrom(1024)
+        infoFromServer = pickle.loads(message)
+        return infoFromServer
+
+    def handleIncomingInfoHandshake(self):
+        infoFromServer = self.receiveHandshake()
+        print("received")
+        if len(PLAYERS_ON_MAP) == 0:
+            for newPlayer in infoFromServer.playerList:
+                newPlayer = Player(newPlayer.pos, spriteGroup, newPlayer.nickname)
+    
+
+
+
+client = ClientSide()
+nickname = "mikołaj1" #input("Input Nickname: ")
+
+TMX_DATA = load_pygame(f'map{MAP_INDEX}Test.tmx') #IMPORTANT: dont forget to change map collisions after chaning the map
+
 
 class CameraGroup(pygame.sprite.Group): #this essentially draws the screen and what you are seeing right now, hence why it has replaced every image creation
     def __init__(self):                 #STRONGLY RECOMMEND: SEE HOW I MAKE IMAGES WITH THIS AND MAKE THE OTHER OBJECTS THE SAME WAY
@@ -76,6 +115,7 @@ class Tile(pygame.sprite.Sprite): #WATCH TUTORIAL
 class Player(pygame.sprite.Sprite):
     def __init__(self, pos, group, nickname):
         super().__init__(group)
+        self.group = group
         self.imagesAnimationUp = []
         self.imagesAnimationDown = []
         self.imagesAnimationLeft = []
@@ -218,7 +258,6 @@ class Player(pygame.sprite.Sprite):
                     if (event.key == pygame.K_e):
                         self.weapon = True
                         self.weaponId = weapon.id
-                        print(f"WEAPON {weapon.id} OWNED")
                         weapon.owner = self.nickname
             
                 if self.weapon == True and event.type == pygame.KEYDOWN and self.weaponId == weapon.id:
@@ -226,7 +265,6 @@ class Player(pygame.sprite.Sprite):
                         self.weapon = False
                         self.weaponId = 0
                         weapon.owner = ""
-                        print(f' WEAPON {weapon.id} JUST GO DISOWNED')
   
                 #if self.weapon and weapon.owner == self.nickname:
                  #   weapon.rotateWeapon()
@@ -249,7 +287,6 @@ class Player(pygame.sprite.Sprite):
         nicknameText = get_font(18).render(self.nickname, True, "White")
         if self.isPlayable:
             nicknameRect = nicknameText.get_rect(center=(WIDTH / 2 + 20, HEIGHT / 2 - 70))
-            print(self.rect.x, self.rect.y)
         else:
             nicknameRect = nicknameText.get_rect()
         GAME_WINDOW.blit(nicknameText, nicknameRect)
@@ -371,9 +408,14 @@ def drawWindow(events, spriteGroup, weapon):
 
     GAME_WINDOW.blit(BG, (0,0))
     spriteGroup.update() #inherited from pygame.sprites.Group()
-    spriteGroup.cameraDraw(player1) #the custom thing i did
-    player1.updatePlayer(events, spriteGroup) #keeps track of inputs
-    player2.updatePlayer(events, spriteGroup)
+
+
+    for player in PLAYERS_ON_MAP:
+        player.updatePlayer(events, spriteGroup) #keeps track of inputs
+
+        if player.isPlayable:
+            spriteGroup.cameraDraw(player) #the custom thing i did
+    #player2.updatePlayer(events, spriteGroup)
 
 def drawCrosshair():
     x, y = pygame.mouse.get_pos()
@@ -382,11 +424,24 @@ def drawCrosshair():
     pygame.draw.rect(GAME_WINDOW, (255,0,0), [x, y + 6 , 4, 10])
     pygame.draw.rect(GAME_WINDOW, (255,0,0), [x, y - 12 , 4, 10])
 
+
+client.sendHandshake(nickname)
+client.handleIncomingInfoHandshake()
+
+print(PLAYERS_ON_MAP)
+
+
 mapDraw()
-player1 = Player((1000, 900), spriteGroup, "PlayerOne")
-player2 = Player((0, 900), spriteGroup, "TEST")
-player1.isPlayable = True
-player2.speed = 5               ##DEBUGGING PURPOSES
+#player1 = Player((1000, 900), spriteGroup, nickname)
+#player2 = Player((0, 900), spriteGroup, "TEST")
+
+for player in PLAYERS_ON_MAP:
+    if(player.nickname == nickname):
+        player.isPlayable = True
+
+
+#player1.isPlayable = True
+#player2.speed = 5               ##DEBUGGING PURPOSES
 testObject1 = ObjectBarrel((200, 200), spriteGroup)
 OBJECTS.append(testObject1)#saving the barrel in a list tocheck for collisions, ideally this will be a lit of static objects and even more ideally we can check only for the close ones in the Player object
 testWeapon1 = Weapon((300, 300), spriteGroup, 1)
@@ -408,8 +463,8 @@ def main():
             if event.type == pygame.QUIT:
                 run = False
     
-
-        player1.checkForWeaponDetection(events)#this can be called in the update player function in the object itself i think
+        for player in PLAYERS_ON_MAP:
+            player.checkForWeaponDetection(events)#this can be called in the update player function in the object itself i think
 
         drawWindow(events, spriteGroup, testWeapon1)
         drawCrosshair()

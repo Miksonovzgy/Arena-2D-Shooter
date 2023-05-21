@@ -19,11 +19,13 @@ server.bind(("localhost", 9999))
 
 def recieve():
     while True:
-        try:
+        if messages.empty():
+            print("LISTENING")
             message, adr = server.recvfrom(1024)
-            messages.put((message, adr))
-        except:
-            pass
+            messages.put((pickle.loads(message), adr))
+            print(pickle.loads(message))
+        else:
+           break
 
 #def senderProtocol():
 
@@ -44,15 +46,17 @@ def setWeapons():
 
 def handleClientInfo():
     while True:
+        recieve()
         while not messages.empty():
-            message, adr = messages.get()
-            messageObject = pickle.loads(message)
+            messageObject, adr = messages.get()
             if messageObject.protocol == "NAME":
+                print("GOT THE HANDSHAKE MESSAGE") ##DEBUGGING
                 nickname = messageObject.nickname 
                 usernames.append(nickname)
                 clients.append(adr)
                 index = clients.index(adr)
-                setPlayerInfo(index, nickname, "NEW_PLAYER")    
+                setPlayerInfo(index, nickname, "NEW_PLAYER")   
+                print(f'USERNAMES: {usernames}') 
             if messageObject.protocol == "CLIENT_INFO": #THIS WILL GIVE YOU A GOOD IDEA HOW THE BIG INFO OBJECT NEEDS TO LOOK
                 index = usernames.index(messageObject.player.nickname) 
                 players[index].pos = messageObject.player.pos
@@ -73,7 +77,8 @@ def broadcast():
             for player in players:
                 if player.protocol == "NEW_PLAYER":
                     index = players.index(player)
-                    serverInfo = infoObjects.generalServerInfo("HANDSHAKE", players, player.nickname, map, objects, weapons, bullets)
+                    serverInfo = infoObjects.generalServerInfo("HANDSHAKE", players, map, objects, weapons, bullets) ##HERE I REMOVED THE player.nickname PARAMETER BETWEEN PLAYERS AND MAP
+                    print(players)
                     serverInfoToBeSend = pickle.dumps(serverInfo)
                     server.sendto(serverInfoToBeSend, clients[index])
                 if player.protocol == "DISCONNECT":
@@ -82,7 +87,8 @@ def broadcast():
                 else:
                     player.protocol = "UPDATE_STATE"
                     playerObject = pickle.dumps(player)
-                    server.sendall(playerObject)
+                    for client in clients:
+                        server.sendto(playerObject, client)
             bullets.clear()
 
 def main ():
