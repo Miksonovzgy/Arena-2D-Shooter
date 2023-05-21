@@ -43,7 +43,9 @@ class ClientSide():
     def sendHandshake(self, nickname):
         newPlayerInfo = infoObjects.disconnectionObject(nickname, "NAME")
         newPlayerObject = pickle.dumps(newPlayerInfo)
-        self.client.sendto(newPlayerObject, self.address)
+        print(newPlayerObject)
+        if self.client.sendto(newPlayerObject, self.address):
+            print("a")
 
     def receiveHandshake(self):
         print("b")

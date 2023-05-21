@@ -21,9 +21,10 @@ def recieve():
     while True:
             print("LISTENING")
             message, adr = server.recvfrom(1024)
-            messages.put((pickle.loads(message), adr))
-            print(message)
+            messageObject = pickle.loads(message)
+            messages.put((messageObject,  adr))
             handleClientInfo()
+
 
 def setPlayerInfo(index, nickname, protocol):
     playerObject = infoObjects.infoPlayerObject((index*200, index*100), GROUP, nickname, protocol) #here the sprite group string will be used as the value for the sprite group, you just have to destringify it
@@ -41,32 +42,31 @@ def setWeapons():
         index += 200
 
 def handleClientInfo():
-    while True:
-        while not messages.empty():
-            messageObject, adr = messages.get()
-            print(messageObject)
-            if messageObject.protocol == "NAME":
-                print("GOT THE HANDSHAKE MESSAGE") ##DEBUGGING
-                nickname = messageObject.nickname 
-                usernames.append(nickname)
-                clients.append(adr)
-                index = clients.index(adr)
-                setPlayerInfo(index, nickname, "NEW_PLAYER")   
-                print(f'USERNAMES: {usernames}') 
-            if messageObject.protocol == "CLIENT_INFO": #THIS WILL GIVE YOU A GOOD IDEA HOW THE BIG INFO OBJECT NEEDS TO LOOK
-                index = usernames.index(messageObject.player.nickname) 
-                players[index].pos = messageObject.player.pos
-                for bullet in messageObject.bulletList:
-                    bullets.append(bullet) #needs to be cleared after every time we send info to clients for the bullets
-                for weapon in messageObject.weaponList:
-                    for oldWeapon in weapons:   #MIGHT NEED TO BE CHANGED IF PERFORMANCE IS FUCKED BUT I CANT THINK OF ANYTHING BETTER RN
-                        if oldWeapon.id == weapon.id:
-                            oldWeapon.pos = weapon.pos
-            if messageObject.protocol == "DISCONNECT":
-                nicknameIndex = usernames.index(messageObject.nickname)
-                players[nicknameIndex].protocol = "DISCONNECT"
-            else:
-                pass
+    while not messages.empty():
+        messageObject, adr = messages.get()
+        print(messageObject)
+        if messageObject.protocol == "NAME":
+            print("GOT THE HANDSHAKE MESSAGE") ##DEBUGGING
+            nickname = messageObject.nickname 
+            usernames.append(nickname)
+            clients.append(adr)
+            index = clients.index(adr)
+            setPlayerInfo(index, nickname, "NEW_PLAYER")   
+            print(f'USERNAMES: {usernames}') 
+        if messageObject.protocol == "CLIENT_INFO": #THIS WILL GIVE YOU A GOOD IDEA HOW THE BIG INFO OBJECT NEEDS TO LOOK
+            index = usernames.index(messageObject.player.nickname) 
+            players[index].pos = messageObject.player.pos
+            for bullet in messageObject.bulletList:
+                bullets.append(bullet) #needs to be cleared after every time we send info to clients for the bullets
+            for weapon in messageObject.weaponList:
+                for oldWeapon in weapons:   #MIGHT NEED TO BE CHANGED IF PERFORMANCE IS FUCKED BUT I CANT THINK OF ANYTHING BETTER RN
+                    if oldWeapon.id == weapon.id:
+                        oldWeapon.pos = weapon.pos
+        if messageObject.protocol == "DISCONNECT":
+            nicknameIndex = usernames.index(messageObject.nickname)
+            players[nicknameIndex].protocol = "DISCONNECT"
+        else:
+            pass
 
 def broadcast():
     while True:
@@ -74,8 +74,9 @@ def broadcast():
                 if player.protocol == "NEW_PLAYER":
                     index = players.index(player)
                     serverInfo = infoObjects.generalServerInfo("HANDSHAKE", players, map, objects, weapons, bullets) ##HERE I REMOVED THE player.nickname PARAMETER BETWEEN PLAYERS AND MAP
-                    print(players)
                     serverInfoToBeSend = pickle.dumps(serverInfo)
+                    print(serverInfoToBeSend)
+                    print(clients[index])
                     server.sendto(serverInfoToBeSend, clients[index])
                 if player.protocol == "DISCONNECT":
                     disconnectObject = pickle.dumps(infoObjects.disconnectionObject(player.nickname, player.protocol))
@@ -92,7 +93,6 @@ def main ():
     setWeapons()
     t1 = threading.Thread(target = recieve)
     t2 = threading.Thread(target = broadcast)
-
     t1.start()
     t2.start()
 
