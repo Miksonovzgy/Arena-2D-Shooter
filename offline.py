@@ -13,6 +13,7 @@ import threading
 import queue
 
 
+
 pygame.init()
 OBJECTS = []
 FPS = 60
@@ -28,11 +29,14 @@ WEAPON_SIZE = (412/7,166/7)
 BULLET_SIZE = (32/3, 80/3)
 TILE_SIZE = [128, 120]
 BULLETS_ON_MAP = []
+MY_BULLETS_ON_MAP = []
 PLAYERS_ON_MAP = []
 WEAPONS_ON_MAP = []
 MAP_INDEX = 1
 
 updateMessages = queue.Queue()
+
+sendingQueue = queue.Queue()
 
 
 
@@ -60,6 +64,7 @@ class ClientSide():
         if len(PLAYERS_ON_MAP) == 0:
             for newPlayer in infoFromServer.playerList:
                 newPlayer = Player(newPlayer.pos, spriteGroup, newPlayer.nickname)
+                #print(PLAYERS_ON_MAP)
         
         if len(OBJECTS) == 0:
             for newObject in infoFromServer.objectList:
@@ -72,30 +77,60 @@ class ClientSide():
         if len(BULLETS_ON_MAP) == 0:
             for newBullet in infoFromServer.bulletList:
                 nweBullet = Bullet(newBullet.posX, newBullet.posY, spriteGroup, newBullet.shooter)
+        
+        #print(PLAYERS_ON_MAP)
+        #print(OBJECTS)
+        #print(WEAPONS_ON_MAP)
+        #print(BULLETS_ON_MAP)  
 
     def handleIncomingServerInfoUpdate(self):
         while True:
             message, _ = self.client.recvfrom(1024)
             infoFromServer = pickle.loads(message)
             updateMessages.put(infoFromServer)
+            print("LISTENING FOR UPDATES")
 
             if not updateMessages.empty():
                 updateInfo = updateMessages.get()
+                print("GOT UPDATE")
 
                 if updateInfo.protocol == "UPDATE_STATE":
                     print("got it")
                     for player in PLAYERS_ON_MAP:
-                        if updateInfo.nickname == player.nickname:
-                            player.pos = updateInfo.pos
+                        for newPlayerInfo in updateInfo.playerList:
+                            if player.nickname == newPlayerInfo.nickname:
+                                player.pos = newPlayerInfo.pos
 
-    
+                    BULLETS_ON_MAP.clear()
+                    for bullet in updateInfo.bulletList:
+                        BULLETS_ON_MAP.append(Bullet(bullet.posX, bullet.posY, spriteGroup, bullet.shooter))
+                    
+                    for weapon in WEAPONS_ON_MAP:
+                        for newWeaponInfo in updateInfo.weaponList:
+                            if weapon.id == newWeaponInfo.id:
+                                weapon.owner = newWeaponInfo.owner
+                    
 
-    
+                            
 
+
+
+    def sendInfoToServer(self, ourPlayer):
+        while True:
+            ourPlayerInfo = infoObjects.generalClientInfo("CLIENT_INFO", ourPlayer.position, ourPlayer.nickname, MY_BULLETS_ON_MAP)
+            ourPlayerInfoObject = pickle.dumps(ourPlayerInfo)
+            sendingQueue.put(ourPlayerInfoObject)
+            #print("PUT MESSAGE TO THE QUEUE")
+
+            if not sendingQueue.empty():
+                #print("SENT THE MESSAGE")
+                messageToSend = sendingQueue.get()
+                self.client.sendto(messageToSend, self.address)
+                #print("sent")
 
 
 client = ClientSide()
-nickname = "mikołaj2" #input("Input Nickname: ")
+nickname = "mikołaj1" #input("Input Nickname: ")
 
 TMX_DATA = load_pygame(f'map{MAP_INDEX}Test.tmx') #IMPORTANT: dont forget to change map collisions after chaning the map
 
@@ -253,10 +288,10 @@ class Player(pygame.sprite.Sprite):
                 self.image = self.imagesAnimationRight[self.imageIndex]
                 self.animationCooldown = 0
 
-    def updatePlayer(self, events, spriteGroup):
+    def updatePlayer(self, events, spriteGroup, x, y):
 
         self.checkIfShooting(events, spriteGroup)
-        self.playerInput(1, 0)
+        self.playerInput(x,y)
         self.animations()
         self.checkForHits()
         self.checkForHealth()
@@ -331,7 +366,7 @@ class Player(pygame.sprite.Sprite):
                 for weapon in WEAPONS_ON_MAP:
                     if event.type == pygame.MOUSEBUTTONDOWN and self.ammo > 0 and self.weapon and weapon.id == self.weaponId:
                         bullet = Bullet(weapon.rect.x, weapon.rect.y, spriteGroup, self.nickname)
-                        BULLETS_ON_MAP.append(bullet)
+                        MY_BULLETS_ON_MAP.append(bullet)
                         self.ammo -= 1
                 
     def checkForHits(self):
@@ -418,12 +453,16 @@ class Bullet(pygame.sprite.Sprite):
         for object in OBJECTS:
             if object.rect.colliderect(self.rect.x, self.rect.y, self.rect.width,self.rect.height):
                 BULLETS_ON_MAP.remove(self)
+                if self in MY_BULLETS_ON_MAP:
+                    MY_BULLETS_ON_MAP.remove(self)
                 spriteGroup.remove(self)
 
     
     def checkForCollisionWithBorder(self):
         if (self.rect.x >= 31 * TILE_SIZE[0]) or (self.rect.x <= 0) or (self.rect.y >= 31 * TILE_SIZE[1]) or (self.rect.y <= 0):
             BULLETS_ON_MAP.remove(self)
+            if self in MY_BULLETS_ON_MAP:
+                    MY_BULLETS_ON_MAP.remove(self)
             spriteGroup.remove(self)    
 
 class ObjectBarrel(pygame.sprite.Sprite):
@@ -445,9 +484,12 @@ def drawWindow(events, spriteGroup):
     GAME_WINDOW.blit(BG, (0,0))
     spriteGroup.update() #inherited from pygame.sprites.Group()
     for player in PLAYERS_ON_MAP:
-        player.updatePlayer(events, spriteGroup) #keeps track of inputs
+        player.updatePlayer(events, spriteGroup, player.position.x, player.position.y) #keeps track of inputs
+        if(player.nickname == nickname):
+            player.isPlayable = True
         if player.isPlayable:
             spriteGroup.cameraDraw(player) #the custom thing i did
+
 
     #player2.updatePlayer(events, spriteGroup)
 
@@ -462,28 +504,22 @@ mapDraw()
 client.sendHandshake(nickname)
 client.handleIncomingInfoHandshake()
 
-print(PLAYERS_ON_MAP)
-
-
-
-#player1 = Player((1000, 900), spriteGroup, nickname)
-#player2 = Player((0, 900), spriteGroup, "TEST")
 
 for player in PLAYERS_ON_MAP:
-    if(player.nickname == nickname):
-        player.isPlayable = True
+    if player.nickname == nickname:
+        ourPlayer = player
 
 
-#player1.isPlayable = True
-#player2.speed = 5               ##DEBUGGING PURPOSES
-#testObject1 = ObjectBarrel((200, 200), spriteGroup)
-#testWeapon1 = Weapon(300, 300, spriteGroup, 1)
-#testWeapon2 = Weapon(900, 900, spriteGroup, 2)
-#testWeapon3 = Weapon(500, 500, spriteGroup, 3)
-#testWeapon4 = Weapon(700, 700, spriteGroup, 4)
 
 threadIncoming = threading.Thread(target = client.handleIncomingServerInfoUpdate)
 threadIncoming.start()
+
+
+
+time.sleep(1)
+
+threadOutcoming = threading.Thread(target = client.sendInfoToServer(ourPlayer))
+threadOutcoming.start()
 
 def main():
     clock = pygame.time.Clock()

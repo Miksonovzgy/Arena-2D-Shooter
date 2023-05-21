@@ -20,8 +20,12 @@ class generalServerInfo():
 #MANUALLY YOU WILL SEND IT TO THE SERVER, EXAMPLE: YOU SHOOT AND BULLETS ARE CREATED, THEN YOU SEND IN THE BIG INFO OBJECT
 #A LIST OF BULLET OBJECTS, WHICH THE SERVER WILL STORE IN ITS OWN LIST OF BULLETS, WHICH IT WILL THEN SEND TO THE PLAYERS
 
-#class generaClientInfo():
- #   def __init__(self, protocolMessage, )
+class generalClientInfo():
+    def __init__(self, protocolMessage, pos, nickname, bulletsShot):
+        self.protocol = protocolMessage
+        self.pos = pos
+        self.nickname = nickname
+        self.bulletsShot = bulletsShot
 
 
 class infoPlayerObject(): 
