@@ -30,9 +30,39 @@ BULLETS_ON_MAP = []
 PLAYERS_ON_MAP = []
 WEAPONS_ON_MAP = []
 MAP_INDEX = 1
+TMX_DATA = load_pygame(f'map{MAP_INDEX}Test.tmx')
+class CameraGroup(pygame.sprite.Group): #this essentially draws the screen and what you are seeing right now, hence why it has replaced every image creation
+    def __init__(self):                 #STRONGLY RECOMMEND: SEE HOW I MAKE IMAGES WITH THIS AND MAKE THE OTHER OBJECTS THE SAME WAY
+        super().__init__()
+        self.displayScreen = pygame.display.get_surface()
+        self.cameraX = self.displayScreen.get_size()[0]/2
+        self.cameraY = self.displayScreen.get_size()[1]/2
+        self.offset = pygame.math.Vector2() #this is for centering
+        self.cameraRect = pygame.Rect(200, 100, self.displayScreen.get_size()[0] - (200 + 200), self.displayScreen.get_size()[1] - (100 + 100)) #TO DO: replace with constants
 
+    def cameraDraw(self, player): #this is the important stuff, im essentially modyfing the draw function here
 
+        self.offset.x = player.rect.centerx - self.cameraX
+        self.offset.y = player.rect.centery - self.cameraY #this is for centering
 
+        for sprite in self.sprites(): #draws every sprite (which for now is pistol, barrel and player)
+            offsetPosition = sprite.rect.topleft - self.offset
+            self.displayScreen.blit(sprite.image, offsetPosition)
+
+spriteGroup = CameraGroup() #this makes the custom group of sprites
+ #IMPORTANT: dont forget to change map collisions after chaning the map
+class Tile(pygame.sprite.Sprite): #WATCH TUTORIAL
+    def __init__(self, pos, surf: pygame.Surface, group): #,group
+        super().__init__(group) #group
+        self.image = surf
+        self.rect = self.image.get_rect(topleft = pos)
+def mapDraw(): #WATCH TUTORIAL      
+    for tiles in TMX_DATA.layers:
+        if hasattr(tiles, 'data'):
+            for x,y,surf in tiles.tiles():
+                pos = (x * TILE_SIZE[0], y * TILE_SIZE[1])
+                Tile(pos = pos, surf = surf, group = spriteGroup)#tileSpriteGroup)
+mapDraw()
 class ClientSide():
     def __init__(self):
         self.client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -44,8 +74,7 @@ class ClientSide():
         newPlayerInfo = infoObjects.disconnectionObject(nickname, "NAME")
         newPlayerObject = pickle.dumps(newPlayerInfo)
         print(newPlayerObject)
-        if self.client.sendto(newPlayerObject, self.address):
-            print("a")
+        self.client.sendto(newPlayerObject, self.address)
 
     def receiveHandshake(self):
         print("b")
@@ -67,32 +96,6 @@ class ClientSide():
 client = ClientSide()
 nickname = "mikołaj1" #input("Input Nickname: ")
 
-TMX_DATA = load_pygame(f'map{MAP_INDEX}Test.tmx') #IMPORTANT: dont forget to change map collisions after chaning the map
-
-
-class CameraGroup(pygame.sprite.Group): #this essentially draws the screen and what you are seeing right now, hence why it has replaced every image creation
-    def __init__(self):                 #STRONGLY RECOMMEND: SEE HOW I MAKE IMAGES WITH THIS AND MAKE THE OTHER OBJECTS THE SAME WAY
-        super().__init__()
-        self.displayScreen = pygame.display.get_surface()
-        self.cameraX = self.displayScreen.get_size()[0]/2
-        self.cameraY = self.displayScreen.get_size()[1]/2
-        self.offset = pygame.math.Vector2() #this is for centering
-        self.cameraRect = pygame.Rect(200, 100, self.displayScreen.get_size()[0] - (200 + 200), self.displayScreen.get_size()[1] - (100 + 100)) #TO DO: replace with constants
-
-    def cameraDraw(self, player): #this is the important stuff, im essentially modyfing the draw function here
-
-        self.offset.x = player.rect.centerx - self.cameraX
-        self.offset.y = player.rect.centery - self.cameraY #this is for centering
-
-        for sprite in self.sprites(): #draws every sprite (which for now is pistol, barrel and player)
-            offsetPosition = sprite.rect.topleft - self.offset
-            self.displayScreen.blit(sprite.image, offsetPosition)
-
-spriteGroup = CameraGroup() #this makes the custom group of sprites
-
-
-
-
 #NOT NEEDED FOR NOW
 class Background(pygame.sprite.Sprite):
     def __init__(self, group):
@@ -108,13 +111,6 @@ class Background(pygame.sprite.Sprite):
 
 def get_font(size): # Returns Press-Start-2P in the desired size
     return pygame.font.Font("assets/font.ttf", size)
-
-
-class Tile(pygame.sprite.Sprite): #WATCH TUTORIAL
-    def __init__(self, pos, surf: pygame.Surface, group): #,group
-        super().__init__(group) #group
-        self.image = surf
-        self.rect = self.image.get_rect(topleft = pos)
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, pos, group, nickname):
@@ -316,13 +312,6 @@ class Player(pygame.sprite.Sprite):
             spriteGroup.remove(self)
             PLAYERS_ON_MAP.remove(self)
 
-def mapDraw(): #WATCH TUTORIAL      
-    for tiles in TMX_DATA.layers:
-        if hasattr(tiles, 'data'):
-            for x,y,surf in tiles.tiles():
-                pos = (x * TILE_SIZE[0], y * TILE_SIZE[1])
-                Tile(pos = pos, surf = surf, group = spriteGroup)#tileSpriteGroup)
-
 ##To Maximize the Window Size ONLY FOR WINDOWS
 if sys.platform == "win32":
     HWND = pygame.display.get_wm_info()['window']
@@ -433,9 +422,6 @@ client.sendHandshake(nickname)
 client.handleIncomingInfoHandshake()
 
 print(PLAYERS_ON_MAP)
-
-
-mapDraw()
 #player1 = Player((1000, 900), spriteGroup, nickname)
 #player2 = Player((0, 900), spriteGroup, "TEST")
 
@@ -456,7 +442,6 @@ testWeapon4 = Weapon((700, 700), spriteGroup, 4)
 def main():
     clock = pygame.time.Clock()
     run = True
-
     pygame.mouse.set_visible(False)
     #spriteGroup.add(BG)
     while run:

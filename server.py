@@ -73,7 +73,7 @@ def broadcast():
             for player in players:
                 if player.protocol == "NEW_PLAYER":
                     index = players.index(player)
-                    serverInfo = infoObjects.generalServerInfo("HANDSHAKE", players, map, objects, weapons, bullets) ##HERE I REMOVED THE player.nickname PARAMETER BETWEEN PLAYERS AND MAP
+                    serverInfo = infoObjects.generalServerInfo("HANDSHAKE", players, objects, weapons, bullets) ##HERE I REMOVED THE player.nickname PARAMETER BETWEEN PLAYERS AND MAP
                     serverInfoToBeSend = pickle.dumps(serverInfo)
                     print(serverInfoToBeSend)
                     print(clients[index])

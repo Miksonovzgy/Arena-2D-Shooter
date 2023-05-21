@@ -1,8 +1,7 @@
 class generalServerInfo():
-    def __init__(self, protocolMessage, playerList, map, objectList, weaponList, bulletList):
-        self.protocol = protocolMessage#*
-        self.playerList = playerList #THIS IS A LIST OF INFOOBJECTS FOR THE PLAYERS THAT ARE IN
-        self.map = map #THIS IS A STRING WITH THE PATH TO THE MAP
+    def __init__(self, protocolMessage, playerList, objectList, weaponList, bulletList):
+        self.protocol = protocolMessage#* #THIS IS A LIST OF INFOOBJECTS FOR THE PLAYERS THAT ARE IN
+        self.playerList = playerList
         self.objectList = objectList #AGAIN, LIST OF "OBJECT" OBJECTS
         self.weaponList = weaponList #I THINK YOU GET IT BY THIS POINT
         self.bulletList = bulletList #ITS GETTING KINDA OBVIOUS AT THIS POINT 
