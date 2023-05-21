@@ -19,15 +19,11 @@ server.bind(("localhost", 9999))
 
 def recieve():
     while True:
-        if messages.empty():
             print("LISTENING")
             message, adr = server.recvfrom(1024)
             messages.put((pickle.loads(message), adr))
-            print(pickle.loads(message))
-        else:
-           break
-
-#def senderProtocol():
+            print(message)
+            handleClientInfo()
 
 def setPlayerInfo(index, nickname, protocol):
     playerObject = infoObjects.infoPlayerObject((index*200, index*100), GROUP, nickname, protocol) #here the sprite group string will be used as the value for the sprite group, you just have to destringify it
@@ -46,9 +42,9 @@ def setWeapons():
 
 def handleClientInfo():
     while True:
-        recieve()
         while not messages.empty():
             messageObject, adr = messages.get()
+            print(messageObject)
             if messageObject.protocol == "NAME":
                 print("GOT THE HANDSHAKE MESSAGE") ##DEBUGGING
                 nickname = messageObject.nickname 
@@ -94,7 +90,7 @@ def broadcast():
 def main ():
     setObjects()
     setWeapons()
-    t1 = threading.Thread(target = handleClientInfo)
+    t1 = threading.Thread(target = recieve)
     t2 = threading.Thread(target = broadcast)
 
     t1.start()

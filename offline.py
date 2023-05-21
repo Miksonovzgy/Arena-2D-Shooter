@@ -46,13 +46,15 @@ class ClientSide():
         self.client.sendto(newPlayerObject, self.address)
 
     def receiveHandshake(self):
+        print("b")
         message, _ = self.client.recvfrom(1024)
         infoFromServer = pickle.loads(message)
+        print(infoFromServer)
         return infoFromServer
 
     def handleIncomingInfoHandshake(self):
         infoFromServer = self.receiveHandshake()
-        print("received")
+        print(f"received: {infoFromServer}")
         if len(PLAYERS_ON_MAP) == 0:
             for newPlayer in infoFromServer.playerList:
                 newPlayer = Player(newPlayer.pos, spriteGroup, newPlayer.nickname)
