@@ -11,6 +11,7 @@ weapons = []
 players = []
 bullets = []
 objects = []
+adresses = []
 map = "map1Test.tmx"
 GROUP = "spriteGroup"
 BARREL_POSITION = (200, 200) #NEEDS TO BE UPDATED WHEN WE CHANGE UP THE MAP A BIT
@@ -25,10 +26,14 @@ idlePosition = pygame.math.Vector2(0, 0)
 
 def recieve():
     while True:
-            message, adr = server.recvfrom(2048)
-            messageObject = pickle.loads(message)
-            messages.put((messageObject,  adr))
-            handleClientInfo()
+       # try:
+                message, adr = server.recvfrom(2048)
+                messageObject = pickle.loads(message)
+                messages.put((messageObject,  adr))
+                handleClientInfo()
+       # except:
+            #print("Listening...")
+
 
 
 def setPlayerInfo(index, nickname, protocol):
@@ -81,8 +86,21 @@ def handleClientInfo():
             bullets.append(messageObject)
 
         if messageObject.protocol == "DISCONNECT":
+            print("GOT THE MESSAGe")
             nicknameIndex = usernames.index(messageObject.nickname)
             players[nicknameIndex].protocol = "DISCONNECT"
+            players.remove(players[nicknameIndex])
+
+        if messageObject.protocol == "BACK_PING":
+            if adr in clients:
+                print("all good")
+
+            else:
+                client_index = usernames.index(messageObject.nickname)
+                clients.remove()
+                del players[client_index]
+                del usernames[client_index]
+                print("client removed due to inactivity")
         else:
             pass
 
@@ -104,6 +122,19 @@ def broadcast():
                         server.sendto(serverInfo, client)
                     bullets.clear()
 
+def ping():
+     threading.Timer(1, ping).start()
+     if len(players) > 0:
+        print("entered function")
+        for client in clients:
+            pingObj = infoObjects.pingObject("PING")
+            server.sendto(pickle.dumps(pingObj), client)
+            print("pign sent")
+
+        
+
+
+
 def main ():
     setObjects()
     setWeapons()
@@ -111,6 +142,7 @@ def main ():
     t2 = threading.Thread(target = broadcast)
     t1.start()
     t2.start()
+    ping()
 
 if __name__ == "__main__":
     main()

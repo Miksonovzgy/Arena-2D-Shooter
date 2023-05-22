@@ -83,6 +83,13 @@ class ClientSide():
         newPlayerInfo = infoObjects.disconnectionObject(nickname, "NAME")
         newPlayerObject = pickle.dumps(newPlayerInfo)
         self.client.sendto(newPlayerObject, self.address)
+    
+    def sendDisconnection(self, nickname):
+        disconnectionInfo = infoObjects.disconnectionObject(nickname, "DISCONNECTION")
+        disconnectionInfoObject = pickle.dumps(disconnectionInfo)
+        print("DISCONNECTION SENT")
+        self.client.sendto(disconnectionInfoObject, self.address)
+    
 
     def handleIncomingServerInfoUpdate(self):
         while True:
@@ -144,6 +151,16 @@ class ClientSide():
                     for barrel in updateInfo.objectList:
                         if len(OBJECTS) == 0:
                             barrel = ObjectBarrel(barrel.pos, spriteGroup)
+
+                if updateInfo.protocol == "DISCONNECT":
+                    PLAYERS_ON_MAP.remove(updateInfo.nickname)
+                
+                if updateInfo.protocol == "PING":
+                    backPingObj = infoObjects.pingObject("BACK_PING", NICKNAME)
+                    print("sending backping")
+                    backPingObj = pickle.dumps(backPingObj)
+                    self.client.sendto(backPingObj, self.address)
+
                             
                     
     def sendInfoToServer(self):
@@ -580,7 +597,8 @@ def mainGameLoop():
             for event in events:
                 if event.type == pygame.QUIT:
                     run = False
-                    os._exit(os.EX_OK)
+                    client.sendDisconnection(NICKNAME)
+                    os._exit(os.X_OK)
     
             for player in PLAYERS_ON_MAP:
                 player.checkForWeaponDetection(events)#this can be called in the update player function in the object itself i think

@@ -67,6 +67,11 @@ class disconnectionObject():
         self.protocol = protocolMessage #IMPORTANT, HERE THE MESSAGE WILL BE EITHER DISCONNECT OR CONNECT AND WE WILL HANDLE CONNECTIONS WITH THIS OBJECT ()
         self.nickname = nickname
 
+class pingObject():
+    def __init__(self, protocol, nickname = ""):
+        self.protocol = protocol
+        self.nickname = nickname
+
 #IM TRULLY SORRY FOR THIS LAST MINUTE CHANGE, THE IDEA CAME TO ME WHEN I STARTED WORKING RIGHT AFTER YOU WENT TO SLEEP
 #I AM TRULLY CONFIDENT THAT THIS IDEA IS GENIUS EVEN IF IT IS A SMALL OVERALL IMPROVEMENT AND THE FINALL RESULT WILL BE BETTER BECAUSE OF THIS
 
