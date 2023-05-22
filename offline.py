@@ -71,7 +71,6 @@ class ClientSide():
         self.server = "localhost"
         self.clientPort = random.randint(8000, 9000)
         self.port = 9999
-        self.client.bind((self.server, self.clientPort))
         self.address = (self.server, self.port)
         self.client.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1)
     
@@ -104,6 +103,9 @@ class ClientSide():
                                 index = PLAYER_NICKNAMES.index(player.nickname)
                                 #print(PLAYERS_ON_MAP[index].position, PLAYERS_ON_MAP[index].nickname, player.positionVector)
                                 PLAYERS_ON_MAP[index].position = player.positionVector
+                                #print(f'PLAYERS [PSITION:{PLAYERS_ON_MAP[index].position}')
+                                PLAYERS_ON_MAP[index].rect.center = player.pos ##ADDED
+                                #print(f'PLAYER: {player.nickname}s position is: {player.pos}')
 
                     for bullet in updateInfo.bulletList: #needs to be chaned to avoid lag
                         BULLETS_ON_MAP.append(Bullet(bullet.posX, bullet.posY, spriteGroup, bullet.shooter))
@@ -130,7 +132,7 @@ class ClientSide():
             ourPlayer = findPlayer()
             if hasattr(ourPlayer, 'position'):
                 if hasattr (ourPlayer, 'nickname'):
-                    ourPlayerInfo = infoObjects.generalClientInfo("CLIENT_INFO", ourPlayer.position, ourPlayer.nickname, MY_BULLETS_ON_MAP)
+                    ourPlayerInfo = infoObjects.generalClientInfo("CLIENT_INFO", ourPlayer.position, ourPlayer.rect.center, ourPlayer.nickname, MY_BULLETS_ON_MAP) ##ADDED
                     ourPlayerInfoObject = pickle.dumps(ourPlayerInfo)
                     self.client.sendto(ourPlayerInfoObject, self.address)
 
@@ -209,6 +211,7 @@ class Player(pygame.sprite.Sprite):
         keys = pygame.key.get_pressed()
         if self.isPlayable:
             if keys[pygame.K_w]:  #from the key presses i store only what the position of the object is suppossed to be
+                print(self.position)
                 self.position.y = -1
             elif keys[pygame.K_s]:
                 self.position.y = +1
@@ -273,6 +276,7 @@ class Player(pygame.sprite.Sprite):
 
         if (self.rect.x >= 31 * TILE_SIZE[0] and self.position.x == 1) or (self.rect.x <= 0 and self.position.x == -1) or (self.rect.y >= 31 * TILE_SIZE[1] and self.position.y == 1) or (self.rect.y <= 0 and self.position.y == -1):
             speed = 0 #this checks for collisions with the borders of the map
+            #self.position = (0,0)
 
         for barrelTest in OBJECTS: #a bit messy, might wanna have a second look
             if barrelTest:
@@ -463,7 +467,7 @@ def drawCrosshair():
     pygame.draw.rect(GAME_WINDOW, (255,0,0), [x, y + 6 , 4, 10])
     pygame.draw.rect(GAME_WINDOW, (255,0,0), [x, y - 12 , 4, 10])
 
-print(NICKNAME)
+#print(NICKNAME)
 client.sendHandshake(NICKNAME)
 
 def findPlayer():

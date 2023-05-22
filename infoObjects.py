@@ -20,9 +20,10 @@ class generalServerInfo():
 #A LIST OF BULLET OBJECTS, WHICH THE SERVER WILL STORE IN ITS OWN LIST OF BULLETS, WHICH IT WILL THEN SEND TO THE PLAYERS
 
 class generalClientInfo():
-    def __init__(self, protocolMessage, positionVector, nickname, bulletsShot):
+    def __init__(self, protocolMessage, positionVector,pos, nickname, bulletsShot):
         self.protocol = protocolMessage
         self.positionVector = positionVector
+        self.pos = pos
         self.nickname = nickname
         self.bulletsShot = bulletsShot
 

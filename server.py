@@ -53,19 +53,17 @@ def handleClientInfo():
             usernames.append(nickname)
             clients.append(adr)
             index = clients.index(adr)
+            print(f'INDEX: {index}')
             setPlayerInfo(index, nickname, "NEW_PLAYER")   
         if messageObject.protocol == "CLIENT_INFO": #THIS WILL GIVE YOU A GOOD IDEA HOW THE BIG INFO OBJECT NEEDS TO LOOK
-            print(messageObject, messageObject.nickname, messageObject.protocol)
-            index = usernames.index(messageObject.nickname)
-            #print(players[index], messageObject.pos) 
+            #print(messageObject, messageObject.nickname, messageObject.protocol)
+            index = usernames.index(messageObject.nickname) 
             players[index].positionVector = messageObject.positionVector
+            players[index].pos = messageObject.pos
             for bullet in messageObject.bulletsShot:
                 bullets.append(bullet)
              #needs to be cleared after every time we send info to clients for the bullets
-            #for weapon in messageObject.weaponList:
-             #   for oldWeapon in weapons:   #MIGHT NEED TO BE CHANGED IF PERFORMANCE IS FUCKED BUT I CANT THINK OF ANYTHING BETTER RN
-              #      if oldWeapon.id == weapon.id:
-               #         oldWeapon.pos = weapon.pos
+
         if messageObject.protocol == "DISCONNECT":
             nicknameIndex = usernames.index(messageObject.nickname)
             players[nicknameIndex].protocol = "DISCONNECT"
@@ -78,7 +76,7 @@ def broadcast():
                 if player.protocol == "NEW_PLAYER":
                     player.protocol = "UPDATE_STATE"
                 if player.protocol == "DISCONNECT":
-                    print("molqqqq>.") #means "whaaaaaaat?!" in bulgarian :)
+                    #print("molqqqq>.") #means "whaaaaaaat?!" in bulgarian :)
                     disconnectObject = pickle.dumps(infoObjects.disconnectionObject(player.nickname, player.protocol))
                     server.sendall(disconnectObject)
                 else:
