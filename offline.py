@@ -14,13 +14,14 @@ import queue
 
 pygame.init()
 OBJECTS = []
+PLAYER_NICKNAMES = []
 FPS = 60
 SCREEN_INFO = pygame.display.Info()
-WIDTH,HEIGHT = 1280,720
+WIDTH,HEIGHT = 800, 600
 GAME_WINDOW = pygame.display.set_mode((WIDTH, HEIGHT))
 BG = pygame.image.load("sprites\sci-fiPlatform\png\Tiles\Acid (2).jpg")
 BG = pygame.transform.scale(BG,(WIDTH, HEIGHT))
-ANIMATION_SPEED = 5
+ANIMATION_SPEED = 3
 PLAYER_SIZE= [100, 100]
 BARREL_SIZE = (177/3, 238/3)
 WEAPON_SIZE = (412/7,166/7)
@@ -31,96 +32,11 @@ MY_BULLETS_ON_MAP = []
 PLAYERS_ON_MAP = []
 WEAPONS_ON_MAP = []
 MAP_INDEX = 1
+CAN_SEND = False
 updateMessages = queue.Queue()
 sendingQueue = queue.Queue()
 
 NICKNAME = input("Input Nickname: ")
-
-class ClientSide():
-    def __init__(self):
-        self.client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.server = "localhost"
-        self.port = 9999
-        self.address = (self.server, self.port)
-    
-    def sendHandshake(self, nickname):
-        newPlayerInfo = infoObjects.disconnectionObject(nickname, "NAME")
-        newPlayerObject = pickle.dumps(newPlayerInfo)
-        self.client.sendto(newPlayerObject, self.address)
-
-    def receiveHandshake(self):
-            message, _ = self.client.recvfrom(1024)
-            infoFromServer = pickle.loads(message)
-            return infoFromServer
-        
-
-    def handleIncomingInfoHandshake(self):
-        infoFromServer = self.receiveHandshake()
-        if len(PLAYERS_ON_MAP) == 0:
-            for newPlayer in infoFromServer.playerList:
-                newPlayer = Player(newPlayer.pos, spriteGroup, newPlayer.nickname)
-                #print(PLAYERS_ON_MAP)
-        
-        if len(OBJECTS) == 0:
-            for newObject in infoFromServer.objectList:
-                newObject = ObjectBarrel(newObject.pos, spriteGroup)
-        
-        if len(WEAPONS_ON_MAP) == 0:
-            for newWeapon in infoFromServer.weaponList:
-                newWeapon = Weapon(newWeapon.posX, newWeapon.posY, spriteGroup, newWeapon.id, newWeapon.owner)
-        
-        if len(BULLETS_ON_MAP) == 0:
-            for newBullet in infoFromServer.bulletList:
-                newBullet = Bullet(newBullet.posX, newBullet.posY, spriteGroup, newBullet.shooter)
-        #print(PLAYERS_ON_MAP)
-        #print(OBJECTS)
-        #print(WEAPONS_ON_MAP)
-        #print(BULLETS_ON_MAP)  
-
-    def handleIncomingServerInfoUpdate(self):
-        while True:
-            message, _ = self.client.recvfrom(1024)
-            infoFromServer = pickle.loads(message)
-            updateMessages.put(infoFromServer)
-            #print("LISTENING FOR UPDATES")
-
-            if not updateMessages.empty():
-                updateInfo = updateMessages.get()
-                #print("GOT UPDATE")
-
-                if updateInfo.protocol == "UPDATE_STATE":
-                    #print("got it")
-                    #print(f'UPDATED INFO GOTTEN:{updateInfo}')
-                    for player in PLAYERS_ON_MAP:
-                        for newPlayerInfo in updateInfo.playerList:
-                            if player.nickname == newPlayerInfo.nickname:
-                                player.pos = newPlayerInfo.pos
-
-                    BULLETS_ON_MAP.clear()
-                    for bullet in updateInfo.bulletList:
-                        BULLETS_ON_MAP.append(Bullet(bullet.posX, bullet.posY, spriteGroup, bullet.shooter))
-                    
-                    for weapon in WEAPONS_ON_MAP:
-                        for newWeaponInfo in updateInfo.weaponList:
-                            if weapon.id == newWeaponInfo.id:
-                                weapon.owner = newWeaponInfo.owner
-                    
-    def sendInfoToServer(self, ourPlayer):
-        while True:
-            ourPlayerInfo = infoObjects.generalClientInfo("CLIENT_INFO", ourPlayer.position, ourPlayer.nickname, MY_BULLETS_ON_MAP)
-            #print(f'UPDATED INFO SENT: {ourPlayerInfo}')
-            #print(ourPlayer.position, ourPlayer.nickname, MY_BULLETS_ON_MAP)
-            ourPlayerInfoObject = pickle.dumps(ourPlayerInfo)
-            sendingQueue.put(ourPlayerInfoObject)
-            #print("PUT MESSAGE TO THE QUEUE")
-
-            if not sendingQueue.empty():
-                #print("SENT THE MESSAGE")
-                messageToSend = sendingQueue.get()
-                self.client.sendto(messageToSend, self.address)
-                #print("sent")
-
-client = ClientSide()
 
 TMX_DATA = load_pygame(f'map{MAP_INDEX}Test.tmx') #IMPORTANT: dont forget to change map collisions after chaning the map
 
@@ -133,24 +49,99 @@ class CameraGroup(pygame.sprite.Group):
         self.offset = pygame.math.Vector2() #this is for centering
         self.cameraRect = pygame.Rect(200, 100, self.displayScreen.get_size()[0] - (200 + 200), self.displayScreen.get_size()[1] - (100 + 100)) #TO DO: replace with constants
 
-    def cameraDraw(self, player): #this is the important stuff, im essentially modyfing the draw function here
+    def cameraDraw(self): #this is the important stuff, im essentially modyfing the draw function here
 
-        self.offset.x = player.rect.centerx - self.cameraX
-        self.offset.y = player.rect.centery - self.cameraY #this is for centering
-
+        player = findPlayer()
+        if hasattr(player, 'rect'):
+            self.offset.x = player.rect.centerx - self.cameraX
+            self.offset.y = player.rect.centery - self.cameraY #this is for centering
+        #for sprite in self.sprites(): #draws every sprite (which for now is pistol, barrel and player)
+           #print("a")
+           #print(sprite)
         for sprite in self.sprites(): #draws every sprite (which for now is pistol, barrel and player)
-            offsetPosition = sprite.rect.topleft - self.offset
-            self.displayScreen.blit(sprite.image, offsetPosition)
+            if hasattr(sprite, 'rect'):
+                offsetPosition = sprite.rect.topleft - self.offset
+                self.displayScreen.blit(sprite.image, offsetPosition)
 
 spriteGroup = CameraGroup() 
- #IMPORTANT: dont forget to change map collisions after chaning the map
+
+class ClientSide():
+    def __init__(self):
+        self.client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.server = "localhost"
+        self.clientPort = random.randint(8000, 9000)
+        self.port = 9999
+        self.client.bind((self.server, self.clientPort))
+        self.address = (self.server, self.port)
+    
+    def sendHandshake(self, nickname):
+        print(nickname)
+        newPlayerInfo = infoObjects.disconnectionObject(nickname, "NAME")
+        newPlayerObject = pickle.dumps(newPlayerInfo)
+        self.client.sendto(newPlayerObject, self.address)
+
+    def handleIncomingServerInfoUpdate(self):
+        while True:
+            message, _ = self.client.recvfrom(1024)
+            infoFromServer = pickle.loads(message)
+            updateMessages.put(infoFromServer)
+
+            if not updateMessages.empty():
+                updateInfo = updateMessages.get()
+                if updateInfo.protocol == "UPDATE_STATE":
+                    for player in updateInfo.playerList:
+                        if player.nickname == NICKNAME:
+                            #print(player.nickname, player.positionVector)
+                            if player.nickname not in PLAYER_NICKNAMES:
+                                player = Player(player.pos, spriteGroup, player.nickname, True)
+                        else:
+                            if player.nickname not in PLAYER_NICKNAMES:
+                                #print("a")
+                                player = Player(player.pos, spriteGroup, player.nickname, False)
+                            else:
+                                #print(player.pos)
+                                index = PLAYER_NICKNAMES.index(player.nickname)
+                                #print(PLAYERS_ON_MAP[index].position, PLAYERS_ON_MAP[index].nickname, player.positionVector)
+                                PLAYERS_ON_MAP[index].position = player.positionVector
+
+                    for bullet in updateInfo.bulletList: #needs to be chaned to avoid lag
+                        BULLETS_ON_MAP.append(Bullet(bullet.posX, bullet.posY, spriteGroup, bullet.shooter))
+                    
+                    if len(WEAPONS_ON_MAP) == 4:
+                        for weapon in updateInfo.weaponList:
+                            index = updateInfo.weaponList.index(weapon)
+                            WEAPONS_ON_MAP[index].posX = weapon.posX
+                            WEAPONS_ON_MAP[index].posY = weapon.posY
+                            WEAPONS_ON_MAP[index].id = weapon.id
+                            WEAPONS_ON_MAP[index].owner = weapon.owner
+                    else:
+                        for weapon in updateInfo.weaponList:
+                            weapon = Weapon(weapon.posX, weapon.posY, spriteGroup, weapon.id, weapon.owner)
+                            #if weapon.id == weapon.id:
+                               # weapon.owner = weapon.owner
+                    for barrel in updateInfo.objectList:
+                        if len(OBJECTS) == 0:
+                            barrel = ObjectBarrel(barrel.pos, spriteGroup)
+                            
+                    
+    def sendInfoToServer(self):
+        while True:
+            ourPlayer = findPlayer()
+            if hasattr(ourPlayer, 'position'):
+                if hasattr (ourPlayer, 'nickname'):
+                    ourPlayerInfo = infoObjects.generalClientInfo("CLIENT_INFO", ourPlayer.position, ourPlayer.nickname, MY_BULLETS_ON_MAP)
+                    ourPlayerInfoObject = pickle.dumps(ourPlayerInfo)
+                    self.client.sendto(ourPlayerInfoObject, self.address)
+
+client = ClientSide()
+
 class Tile(pygame.sprite.Sprite): #WATCH TUTORIAL
     def __init__(self, pos, surf: pygame.Surface, group): #,group
         super().__init__(group) #group
         self.image = surf
         self.rect = self.image.get_rect(topleft = pos)
 def mapDraw(): #WATCH TUTORIAL      
-    print("yo")
+
     for tiles in TMX_DATA.layers:
         if hasattr(tiles, 'data'):
             for x,y,surf in tiles.tiles():
@@ -169,7 +160,7 @@ def get_font(size): # Returns Press-Start-2P in the desired size
     return pygame.font.Font("assets/font.ttf", size)
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self, pos, group, nickname):
+    def __init__(self, pos, group, nickname, isPlayable):
         super().__init__(group)
         self.group = group
         self.imagesAnimationUp = []
@@ -179,21 +170,22 @@ class Player(pygame.sprite.Sprite):
         self.imageIndex = 0
         self.animationCooldown = 0
         self.position = pygame.math.Vector2() 
-        self.speed = 30
+        self.speed = 50
         self.weapon = False
         self.weaponId = 0
         self.ammo = 500
         self.health = 3
         self.nickname = nickname
-        self.isPlayable = False
+        self.isPlayable = isPlayable
+        self.image = pygame.image.load(f'sprites/player1.png')
+        self.rect = self.image.get_rect(topleft = pos)
+        self.rect.width = self.rect.width - 35
         PLAYERS_ON_MAP.append(self)
+        PLAYER_NICKNAMES.append(nickname)
 
         for i in range(1, 4):
             image = pygame.image.load(f'sprites/player{i}.png')
             image = pygame.transform.scale(image, PLAYER_SIZE)
-            if i == 1:
-                self.rect = image.get_rect(topleft = pos)
-                self.rect.width = self.rect.width - 35
             self.imagesAnimationUp.append(image)
 
         for i in range(1, 4):
@@ -210,14 +202,7 @@ class Player(pygame.sprite.Sprite):
             image = pygame.image.load(f'sprites\playerRight{i}.png')
             image = pygame.transform.scale(image, PLAYER_SIZE)
             self.imagesAnimationRight.append(image)
-
         self.image = self.imagesAnimationUp[self.imageIndex]
-
-        if not self.isPlayable:
-            self.rect.x = pos[0]
-            self.rect.y = pos[1]
-
-
     
     def playerInput(self, x = 0, y = 0): #new way of calculatng movement and next position, this implementation might be usefull for the UDP 
         keys = pygame.key.get_pressed()
@@ -235,11 +220,6 @@ class Player(pygame.sprite.Sprite):
                 self.position.x = -1
             else:
                 self.position.x = 0
-        
-        else:
-            self.position.x = x
-            self.position.y = y
-
 
     def animations(self): #made a function to handle animations cuz why not
         if self.position.y == -1:
@@ -253,11 +233,11 @@ class Player(pygame.sprite.Sprite):
         elif self.position.y == 1:
             self.animationCooldown += 1
             if self.animationCooldown == ANIMATION_SPEED:
-               self.imageIndex += 1
-               if (self.imageIndex == 3):
+                self.imageIndex += 1
+                if (self.imageIndex == 3):
                     self.imageIndex = 0
-               self.image = self.imagesAnimationDown[self.imageIndex]
-               self.animationCooldown = 0
+                self.image = self.imagesAnimationDown[self.imageIndex]
+                self.animationCooldown = 0
         elif self.position.x == -1:
             self.animationCooldown += 1
             if self.animationCooldown == ANIMATION_SPEED:
@@ -275,10 +255,10 @@ class Player(pygame.sprite.Sprite):
                 self.image = self.imagesAnimationRight[self.imageIndex]
                 self.animationCooldown = 0
 
-    def updatePlayer(self, events, spriteGroup, x, y):
+    def updatePlayer(self, events, spriteGroup):
 
         self.checkIfShooting(events, spriteGroup)
-        self.playerInput(x,y)
+        self.playerInput()
         self.animations()
         self.checkForHits()
         self.checkForHealth()
@@ -296,13 +276,17 @@ class Player(pygame.sprite.Sprite):
         for barrelTest in OBJECTS: #a bit messy, might wanna have a second look
             if barrelTest:
                 if self.position.y == -1 and barrelTest.rect.colliderect(self.rect.x, self.rect.y + - speed, self.rect.width , self.rect.height) :
-                    speed = 0
+                    self.position.x = 0
+                    self.position.y = 0
                 elif self.position.y == 1 and barrelTest.rect.colliderect(self.rect.x, self.rect.y + speed, self.rect.width, self.rect.height):
-                    speed = 0
+                    self.position.x = 0
+                    self.position.y = 0
                 elif self.position.x == -1 and barrelTest.rect.colliderect(self.rect.x - speed, self.rect.y, self.rect.width, self.rect.height):
-                    speed = 0
+                    self.position.x = 0
+                    self.position.y = 0
                 elif self.position.x == 1 and barrelTest.rect.colliderect(self.rect.x + speed, self.rect.y, self.rect.width, self.rect.height):
-                    speed = 0
+                    self.position.x = 0
+                    self.position.y = 0
 
         self.rect.center += position * speed #pretty much this is the thing that moves the character
 
@@ -379,7 +363,7 @@ class Weapon(pygame.sprite.Sprite): #IMPORTANT, write this thing in the brackets
         super().__init__(group) #IMPORTANT, RLY IMPORTANT without this line in the object, this implementation doesnt work
         self.image = pygame.image.load('sprites/weapons/pistol3.png')
         self.image_original = pygame.transform.scale(self.image, WEAPON_SIZE)
-        self.rect = self.image.get_rect(center=(posX, posY))
+        self.rect = self.image.get_rect(topleft=(posX, posY))
         self.owner = ""
         self.id = id
         WEAPONS_ON_MAP.append(self)
@@ -389,7 +373,7 @@ class Weapon(pygame.sprite.Sprite): #IMPORTANT, write this thing in the brackets
         dx, dy = mouse_x -  WIDTH/2, -(mouse_y - HEIGHT/2)
         angle = math.degrees(math.atan2(dy, dx))
         self.image = pygame.transform.rotate(self.image_original, angle)
-        self.rect = self.image.get_rect(center=self.rect.center)
+        self.rect = self.image.get_rect(topleft=self.rect.center)
     
     def updateWeaponPosition(self):
         for player in PLAYERS_ON_MAP:
@@ -408,18 +392,18 @@ class Bullet(pygame.sprite.Sprite):
         self.rect = self.image_original.get_rect(center = (pos_x, pos_y))
         self.bullet_speed = 60
         self.shooter = shooter
-
-        mouse_x, mouse_y = pygame.mouse.get_pos()
-        dx, dy = mouse_x - WIDTH/2, -(mouse_y - HEIGHT/2)
-        angle = math.degrees(math.atan2(dy, dx)) - 90
-
-        self.image = pygame.transform.rotate(self.image_original, angle)
+        self.angle = math.degrees(math.atan2(dy, dx)) - 90
+        self.image = pygame.transform.rotate(self.image_original, self.angle)
         self.rect = self.image.get_rect(center=self.rect.center)
-
-
         self.angle_to_move = math.atan2(mouse_y - HEIGHT/2, mouse_x - WIDTH/2)
         self.dx = math.cos(self.angle_to_move) * self.bullet_speed
         self.dy = math.sin(self.angle_to_move) * self.bullet_speed
+        BULLETS_ON_MAP.append(self)
+
+        mouse_x, mouse_y = pygame.mouse.get_pos()
+        dx, dy = mouse_x - WIDTH/2, -(mouse_y - HEIGHT/2)
+
+
 
     def move(self):
         self.position.x += self.dx
@@ -454,24 +438,21 @@ class ObjectBarrel(pygame.sprite.Sprite):
         OBJECTS.append(self)
 
 def drawWindow(events, spriteGroup):
+    GAME_WINDOW.blit(BG, (0,0))
+
     for bullet in BULLETS_ON_MAP:
         bullet.move()
-    
     for weapon in WEAPONS_ON_MAP:
         weapon.updateWeaponPosition()
-
-
-    GAME_WINDOW.blit(BG, (0,0))
-    spriteGroup.update() #inherited from pygame.sprites.Group()
     for player in PLAYERS_ON_MAP:
-        player.updatePlayer(events, spriteGroup, player.position.x, player.position.y) #keeps track of inputs
-        if(player.nickname == NICKNAME):
-            player.isPlayable = True
-        if player.isPlayable:
-            print(player.nickname)
-            spriteGroup.cameraDraw(player) #the custom thing i did
-
-
+        player.updatePlayer(events, spriteGroup) #keeps track of inputs
+    spriteGroup.cameraDraw() #the custom thing i di
+    spriteGroup.update()#inherited from pygame.sprites.Group()
+    #PLAYERS_ON_MAP.clear()
+   # PLAYER_NICKNAMES.clear()
+   # BULLETS_ON_MAP.clear()
+   # WEAPONS_ON_MAP.clear()
+    #OBJECTS.clear()
     #player2.updatePlayer(events, spriteGroup)
 
 def drawCrosshair():
@@ -481,23 +462,21 @@ def drawCrosshair():
     pygame.draw.rect(GAME_WINDOW, (255,0,0), [x, y + 6 , 4, 10])
     pygame.draw.rect(GAME_WINDOW, (255,0,0), [x, y - 12 , 4, 10])
 
-
+print(NICKNAME)
 client.sendHandshake(NICKNAME)
-client.handleIncomingInfoHandshake()
 
-
-for player in PLAYERS_ON_MAP:
-    if player.nickname == NICKNAME:
-        ourPlayer = player
+def findPlayer():
+    for player in PLAYERS_ON_MAP:
+       # print(player.nickname, player.isPlayable)
+        if player.nickname == NICKNAME:
+            ourPlayer = player
+            return ourPlayer
 
 
 threadIncoming = threading.Thread(target = client.handleIncomingServerInfoUpdate)
 
-
 #time.sleep(1)
-print("haha")
-threadOutcoming = threading.Thread(target = client.sendInfoToServer, args = ourPlayer)
-print("wtf")
+threadOutcoming = threading.Thread(target = client.sendInfoToServer)
 
 def mainGameLoop():
         clock = pygame.time.Clock()
@@ -517,20 +496,19 @@ def mainGameLoop():
             drawWindow(events, spriteGroup)
             drawCrosshair()
             pygame.display.update()
-
+  
 
 
 def main():
     threadIncoming.start()
-    threadOutcoming.start()
     #mapDraw()
-
+    threadOutcoming.start()
     pygame.mouse.set_visible(False)
     #spriteGroup.add(BG)
     mainGameLoop()
-
     pygame.quit()
     sys.exit()
+
 
 
 

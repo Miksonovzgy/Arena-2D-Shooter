@@ -3,6 +3,7 @@ import threading
 import queue
 import pickle
 import infoObjects
+import pygame
 
 clients = []
 usernames = []
@@ -17,10 +18,10 @@ messages = queue.Queue()
 sendingQueue = queue.Queue()
 server =  socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 server.bind(("localhost", 9999))
+idlePosition = pygame.math.Vector2(0, 0)
 
 def recieve():
     while True:
-            #print("LISTENING")
             message, adr = server.recvfrom(1024)
             messageObject = pickle.loads(message)
             messages.put((messageObject,  adr))
@@ -28,9 +29,8 @@ def recieve():
 
 
 def setPlayerInfo(index, nickname, protocol):
-    playerObject = infoObjects.infoPlayerObject((index*200, index*100), GROUP, nickname, protocol) #here the sprite group string will be used as the value for the sprite group, you just have to destringify it
+    playerObject = infoObjects.infoPlayerObject((index*200, index*100), GROUP, nickname, protocol, idlePosition) #here the sprite group string will be used as the value for the sprite group, you just have to destringify it
     players.append(playerObject)
-    #print(f"Players appended with: {playerObject}")
 
 def setObjects(): #NEEDS TO BE UPDATED WHEN WE CHANGE UP THE MAP A BIT
     barrelObject = infoObjects.infoObjectObject(BARREL_POSITION, GROUP)
@@ -46,24 +46,18 @@ def setWeapons():
 def handleClientInfo():
     while not messages.empty():
         messageObject, adr = messages.get()
-        #print(messageObject)
         if messageObject.protocol == "NAME":
-            print("GOT THE HANDSHAKE MESSAGE") ##DEBUGGING
             nickname = messageObject.nickname 
             usernames.append(nickname)
             clients.append(adr)
             index = clients.index(adr)
-            #print(index)
             setPlayerInfo(index, nickname, "NEW_PLAYER")   
-            #print(f'USERNAMES: {usernames}') 
         if messageObject.protocol == "CLIENT_INFO": #THIS WILL GIVE YOU A GOOD IDEA HOW THE BIG INFO OBJECT NEEDS TO LOOK
+            print(messageObject, messageObject.nickname, messageObject.protocol)
             index = usernames.index(messageObject.nickname)
-            print(players[index], messageObject.pos) 
-            players[index].pos = messageObject.pos
-            print(players[index], players[index].pos)
-            print("yo")
+            #print(players[index], messageObject.pos) 
+            players[index].positionVector = messageObject.positionVector
             for bullet in messageObject.bulletsShot:
-                print("yo1")
                 bullets.append(bullet)
              #needs to be cleared after every time we send info to clients for the bullets
             #for weapon in messageObject.weaponList:
@@ -80,25 +74,17 @@ def broadcast():
     while True:
             for player in players:
                 if player.protocol == "NEW_PLAYER":
-                    index = players.index(player)
-                    serverInfo = infoObjects.generalServerInfo("HANDSHAKE", players, objects, weapons, bullets) ##HERE I REMOVED THE player.nickname PARAMETER BETWEEN PLAYERS AND MAP
-                    serverInfoToBeSend = pickle.dumps(serverInfo)
-                    player.protocol = "OTHER"
-                    server.sendto(serverInfoToBeSend, clients[index])
+                    player.protocol = "UPDATE_STATE"
                 if player.protocol == "DISCONNECT":
+                    print("molqqqq>.") #means "whaaaaaaat?!" in bulgarian :)
                     disconnectObject = pickle.dumps(infoObjects.disconnectionObject(player.nickname, player.protocol))
                     server.sendall(disconnectObject)
                 else:
-                    player.protocol = "UPDATE_STATE"
                     #playerObject = pickle.dumps(player)
                     serverInfo = infoObjects.generalServerInfo("UPDATE_STATE", players, objects, weapons, bullets) ##HERE I REMOVED THE player.nickname PARAMETER BETWEEN PLAYERS AND MAP
-                    sendingQueue.put(serverInfo)
+                    serverInfo = pickle.dumps(serverInfo)
                     for client in clients:
-                        if players[clients.index(client)].protocol != "NEW_PLAYER" and len(players) >= 1 and not sendingQueue.empty():
-                            serverInfo = sendingQueue.get()
-                            serverInfo = pickle.dumps(serverInfo)
-                            server.sendto(serverInfo, client)
-                            #print(f'SENT TO: {usernames[clients.index(client)]}')
+                        server.sendto(serverInfo, client)
             bullets.clear()
 
 def main ():

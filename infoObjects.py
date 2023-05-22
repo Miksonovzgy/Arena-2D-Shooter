@@ -1,5 +1,5 @@
 class generalServerInfo():
-    def __init__(self, protocolMessage, playerList, objectList, weaponList, bulletList):
+    def __init__(self, protocolMessage, playerList: list, objectList, weaponList, bulletList):
         self.protocol = protocolMessage#* #THIS IS A LIST OF INFOOBJECTS FOR THE PLAYERS THAT ARE IN
         self.playerList = playerList
         self.objectList = objectList #AGAIN, LIST OF "OBJECT" OBJECTS
@@ -20,16 +20,17 @@ class generalServerInfo():
 #A LIST OF BULLET OBJECTS, WHICH THE SERVER WILL STORE IN ITS OWN LIST OF BULLETS, WHICH IT WILL THEN SEND TO THE PLAYERS
 
 class generalClientInfo():
-    def __init__(self, protocolMessage, pos, nickname, bulletsShot):
+    def __init__(self, protocolMessage, positionVector, nickname, bulletsShot):
         self.protocol = protocolMessage
-        self.pos = pos
+        self.positionVector = positionVector
         self.nickname = nickname
         self.bulletsShot = bulletsShot
 
 
 class infoPlayerObject(): 
-    def __init__(self, pos, group, nickname, protocol): #ALL OF THESE VALUES GET UPDATED WHENEVER THE CLIENT SENDS A MESSAGE TO THE SERVER
+    def __init__(self, pos, group, nickname, protocol, positionVector): #ALL OF THESE VALUES GET UPDATED WHENEVER THE CLIENT SENDS A MESSAGE TO THE SERVER
         self.protocol = protocol
+        self.positionVector = positionVector
         self.pos = pos
         self.group = group
         self.nickname = nickname
