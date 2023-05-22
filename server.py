@@ -17,21 +17,22 @@ BARREL_POSITION = (200, 200) #NEEDS TO BE UPDATED WHEN WE CHANGE UP THE MAP A BI
 messages = queue.Queue()
 sendingQueue = queue.Queue()
 server =  socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-server.bind(("localhost", 9999))
+server.bind(("192.168.0.108", 9998))
 idlePosition = pygame.math.Vector2(0, 0)
 
 server.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1)
+server.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1)
 
 def recieve():
     while True:
-            message, adr = server.recvfrom(1024)
+            message, adr = server.recvfrom(2048)
             messageObject = pickle.loads(message)
             messages.put((messageObject,  adr))
             handleClientInfo()
 
 
 def setPlayerInfo(index, nickname, protocol):
-    playerObject = infoObjects.infoPlayerObject((index*200, index*100), GROUP, nickname, protocol, idlePosition) #here the sprite group string will be used as the value for the sprite group, you just have to destringify it
+    playerObject = infoObjects.infoPlayerObject((index*200, index*100), GROUP, nickname, protocol, idlePosition, 0) #here the sprite group string will be used as the value for the sprite group, you just have to destringify it
     players.append(playerObject)
 
 def setObjects(): #NEEDS TO BE UPDATED WHEN WE CHANGE UP THE MAP A BIT
@@ -41,7 +42,7 @@ def setObjects(): #NEEDS TO BE UPDATED WHEN WE CHANGE UP THE MAP A BIT
 def setWeapons():
     index = 0
     for i in range(1, 5):
-        weaponObject = infoObjects.infoWeaponObject(300 + index,300 + index, GROUP, i, "")
+        weaponObject = infoObjects.infoWeaponObject(300 + index,300 + index, GROUP,i , "", 0)
         weapons.append(weaponObject)
         index += 200
 
@@ -60,8 +61,20 @@ def handleClientInfo():
             index = usernames.index(messageObject.nickname) 
             players[index].positionVector = messageObject.positionVector
             players[index].pos = messageObject.pos
+            players[index].angle_pointing = messageObject.angle_pointing
+
+            for weapon in weapons:
+                if weapon.id == messageObject.weaponOwnedId:
+                    weapon.owner = messageObject.nickname
+                    
+            print(messageObject.bulletsShot)
+
             for bullet in messageObject.bulletsShot:
+                #print("RECEIVED BULLET")
                 bullets.append(bullet)
+                if not len(messageObject.bulletsShot) == 0:
+                    print(f'BULLETS APPENDED WITH:{bullet} ')
+            
              #needs to be cleared after every time we send info to clients for the bullets
 
         if messageObject.protocol == "DISCONNECT":
@@ -82,10 +95,11 @@ def broadcast():
                 else:
                     #playerObject = pickle.dumps(player)
                     serverInfo = infoObjects.generalServerInfo("UPDATE_STATE", players, objects, weapons, bullets) ##HERE I REMOVED THE player.nickname PARAMETER BETWEEN PLAYERS AND MAP
+                    #print(bullets)
                     serverInfo = pickle.dumps(serverInfo)
                     for client in clients:
                         server.sendto(serverInfo, client)
-            bullets.clear()
+                    bullets.clear()
 
 def main ():
     setObjects()

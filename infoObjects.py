@@ -20,21 +20,24 @@ class generalServerInfo():
 #A LIST OF BULLET OBJECTS, WHICH THE SERVER WILL STORE IN ITS OWN LIST OF BULLETS, WHICH IT WILL THEN SEND TO THE PLAYERS
 
 class generalClientInfo():
-    def __init__(self, protocolMessage, positionVector,pos, nickname, bulletsShot):
+    def __init__(self, protocolMessage, positionVector,pos, nickname, bulletsShot, weaponOwnedId, angle_pointing): ##The moue position is optional
         self.protocol = protocolMessage
         self.positionVector = positionVector
         self.pos = pos
         self.nickname = nickname
         self.bulletsShot = bulletsShot
+        self.weaponOwnedId = weaponOwnedId
+        self.angle_pointing = angle_pointing
 
 
 class infoPlayerObject(): 
-    def __init__(self, pos, group, nickname, protocol, positionVector): #ALL OF THESE VALUES GET UPDATED WHENEVER THE CLIENT SENDS A MESSAGE TO THE SERVER
+    def __init__(self, pos, group, nickname, protocol, positionVector, angle_pointing): #ALL OF THESE VALUES GET UPDATED WHENEVER THE CLIENT SENDS A MESSAGE TO THE SERVER
         self.protocol = protocol
         self.positionVector = positionVector
         self.pos = pos
         self.group = group
         self.nickname = nickname
+        self.angle_pointing = angle_pointing
 
 class infoObjectObject():
     def __init__(self, pos, group):
@@ -42,19 +45,21 @@ class infoObjectObject():
         self.group = group
 
 class infoWeaponObject(): #I NEED SOME ASSISTANCE HERE AND FOR THE BULLETS, AS I DONT REALLY KNOW AGAIN WHAT SHOULD BE EXACTLY SEND TO THE PLAYER WHEN HE JOINS AND WHEN THE PICTURE IS DRAWN EVERYTIME
-    def __init__(self, posX, posY, group, id, owner):
+    def __init__(self, posX, posY, group, id, owner, angle):
         self.posX = posX
         self.posY = posY
         self.group = group
         self.id = id
         self.owner = owner
+        self.angle = angle
 
 class infoBulletsObject():
-    def __init__(self, posX, posY, group, shooter):
+    def __init__(self, posX, posY, shooter, id):
         self.posX = posX
         self.posY = posY
-        self.group = group
+        #self.group = group
         self.shooter = shooter
+        self.id = id
 
 class disconnectionObject():
     def __init__(self, nickname, protocolMessage):
