@@ -17,7 +17,7 @@ OBJECTS = []
 PLAYER_NICKNAMES = []
 FPS = 60
 SCREEN_INFO = pygame.display.Info()
-WIDTH,HEIGHT = 800, 600
+WIDTH,HEIGHT = 1280, 720
 GAME_WINDOW = pygame.display.set_mode((WIDTH, HEIGHT))
 BG = pygame.image.load("sprites\sci-fiPlatform\png\Tiles\Acid (2).jpg")
 BG = pygame.transform.scale(BG,(WIDTH, HEIGHT))
@@ -73,6 +73,7 @@ class ClientSide():
         self.port = 9999
         self.client.bind((self.server, self.clientPort))
         self.address = (self.server, self.port)
+        self.client.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1)
     
     def sendHandshake(self, nickname):
         print(nickname)

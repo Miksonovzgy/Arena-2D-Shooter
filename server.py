@@ -20,6 +20,8 @@ server =  socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 server.bind(("localhost", 9999))
 idlePosition = pygame.math.Vector2(0, 0)
 
+server.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1)
+
 def recieve():
     while True:
             message, adr = server.recvfrom(1024)
