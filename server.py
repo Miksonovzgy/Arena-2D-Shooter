@@ -20,8 +20,8 @@ server =  socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 server.bind(("192.168.0.108", 9998))
 idlePosition = pygame.math.Vector2(0, 0)
 
-server.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1)
-server.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1)
+#server.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1)
+#server.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1)
 
 def recieve():
     while True:
@@ -54,7 +54,7 @@ def handleClientInfo():
             usernames.append(nickname)
             clients.append(adr)
             index = clients.index(adr)
-            print(f'INDEX: {index}')
+            #print(f'INDEX: {index}')
             setPlayerInfo(index, nickname, "NEW_PLAYER")   
         if messageObject.protocol == "CLIENT_INFO": #THIS WILL GIVE YOU A GOOD IDEA HOW THE BIG INFO OBJECT NEEDS TO LOOK
             #print(messageObject, messageObject.nickname, messageObject.protocol)
@@ -66,16 +66,19 @@ def handleClientInfo():
             for weapon in weapons:
                 if weapon.id == messageObject.weaponOwnedId:
                     weapon.owner = messageObject.nickname
-                    
-            print(messageObject.bulletsShot)
 
-            for bullet in messageObject.bulletsShot:
-                #print("RECEIVED BULLET")
-                bullets.append(bullet)
-                if not len(messageObject.bulletsShot) == 0:
-                    print(f'BULLETS APPENDED WITH:{bullet} ')
+            #print(messageObject.bulletsShot)
+
+            #for bullet in messageObject.bulletsShot:
+             #   print("RECEIVED BULLET")
+              ##  bullets.append(bullet)
+                #if not len(messageObject.bulletsShot) == 0:
+                 #   print(f'BULLETS APPENDED WITH:{bullet} ')
             
              #needs to be cleared after every time we send info to clients for the bullets
+        if messageObject.protocol == "NEW_BULLET":
+            print(f'RECEIVED NEW BULLET: {messageObject}')
+            bullets.append(messageObject)
 
         if messageObject.protocol == "DISCONNECT":
             nicknameIndex = usernames.index(messageObject.nickname)
