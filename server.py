@@ -4,35 +4,83 @@ import queue
 import pickle
 import infoObjects
 import pygame
+import math
+
+
+spriteGroup = pygame.sprite.Group()
 
 clients = []
 usernames = []
 weapons = []
 players = []
-bullets = []
+bulletsObjects = []
+bulletsInfo = []
 objects = []
-adresses = []
 map = "map1Test.tmx"
 GROUP = "spriteGroup"
 BARREL_POSITION = (200, 200) #NEEDS TO BE UPDATED WHEN WE CHANGE UP THE MAP A BIT
 messages = queue.Queue()
 sendingQueue = queue.Queue()
 server =  socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-server.bind(("192.168.0.108", 9998))
+server.bind(("192.168.0.108", 9999))
 idlePosition = pygame.math.Vector2(0, 0)
 
-#server.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1)
-#server.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1)
+server.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1)
+server.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1)
+
+class BulletOnServer(pygame.sprite.Sprite):
+    def __init__(self, pos_x, pos_y, group, shooter, id, angle = 0):
+        super().__init__(group)
+        self.position = pygame.math.Vector2()
+        self.position.x = pos_x
+        self.position.y = pos_y
+        self.rect = pygame.Rect(pos_x, pos_y, 32/3, 80/3)
+
+            
+        self.bullet_speed = 10
+        self.shooter = shooter
+        self.id = id
+
+        self.angle = angle
+        self.dx = math.cos(self.angle) * self.bullet_speed
+        self.dy = math.sin(self.angle) * self.bullet_speed
+
+
+
+
+    def move(self):
+        self.position.x += self.dx
+        self.position.y += self.dy
+        #print(f'BULLETS ARE MOVING BY: {self.position.x, self.position.y}')
+        self.rect.x = int(self.position.x)
+        self.rect.y = int(self.position.y)
+        if self.checkForCollisionWithBorder():
+            bulletsObjects.remove(self)
+            destroyBullet = infoObjects.destroyBulletInfoObject("DESTROY_BULLET", self.id)
+            destroyBulletObject = pickle.dumps(destroyBullet)
+            for client in clients:
+                server.sendto(destroyBulletObject, client)
+
+
+    
+    def checkForCollisionWithBorder(self):
+        if (self.rect.x >= 31 * 128) or (self.rect.x <= 0) or (self.rect.y >= 31 * 120) or (self.rect.y <= 0):
+            return True
+
+
+
+
 
 def recieve():
     while True:
-       # try:
-                message, adr = server.recvfrom(2048)
+        #try:
+                message, adr = server.recvfrom(4096)
                 messageObject = pickle.loads(message)
                 messages.put((messageObject,  adr))
                 handleClientInfo()
-       # except:
-            #print("Listening...")
+        #except:
+            #print("oopsi")
+
 
 
 
@@ -61,6 +109,7 @@ def handleClientInfo():
             index = clients.index(adr)
             #print(f'INDEX: {index}')
             setPlayerInfo(index, nickname, "NEW_PLAYER")   
+            print(f'SETTING {nickname}')
         if messageObject.protocol == "CLIENT_INFO": #THIS WILL GIVE YOU A GOOD IDEA HOW THE BIG INFO OBJECT NEEDS TO LOOK
             #print(messageObject, messageObject.nickname, messageObject.protocol)
             index = usernames.index(messageObject.nickname) 
@@ -74,22 +123,30 @@ def handleClientInfo():
 
             #print(messageObject.bulletsShot)
 
-            #for bullet in messageObject.bulletsShot:
-             #   print("RECEIVED BULLET")
-              ##  bullets.append(bullet)
-                #if not len(messageObject.bulletsShot) == 0:
-                 #   print(f'BULLETS APPENDED WITH:{bullet} ')
-            
-             #needs to be cleared after every time we send info to clients for the bullets
-        if messageObject.protocol == "NEW_BULLET":
-            print(f'RECEIVED NEW BULLET: {messageObject}')
-            bullets.append(messageObject)
 
-        if messageObject.protocol == "DISCONNECT":
-            print("GOT THE MESSAGe")
-            nicknameIndex = usernames.index(messageObject.nickname)
-            players[nicknameIndex].protocol = "DISCONNECT"
-            players.remove(players[nicknameIndex])
+        if messageObject.protocol == 'NEW_BULLET':
+            if len(bulletsObjects) != 0:
+                for presentBullet in bulletsObjects:
+                    if presentBullet.id != messageObject.id:
+                        print("APPENDED")  
+                        bulletsObjects.append(BulletOnServer(messageObject.posX, messageObject.posY, spriteGroup,messageObject.shooter, messageObject.id, messageObject.angle))
+            else:
+                bulletsObjects.append(BulletOnServer(messageObject.posX, messageObject.posY, spriteGroup, messageObject.shooter, messageObject.id, messageObject.angle))
+        
+            messageObject.protocol = "NEW_BULLET_SERVERSIDE"
+            for client in clients:
+                server.sendto(pickle.dumps(messageObject), client)
+                
+             #needs to be cleared after every time we send info to clients for the bullets
+
+        #if messageObject.protocol == "DISCONNECT":
+          #  print("GOT THE MESSAGe")
+          #  nicknameIndex = usernames.index(messageObject.nickname)
+          #  players[nicknameIndex].protocol = "DISCONNECT"
+          #  del players[nicknameIndex]
+           # del nickname[nicknameIndex]
+            #del clients[nicknameIndex]
+
 
         if messageObject.protocol == "BACK_PING":
             if adr in clients:
@@ -97,7 +154,7 @@ def handleClientInfo():
 
             else:
                 client_index = usernames.index(messageObject.nickname)
-                clients.remove()
+                del clients[client_index]
                 del players[client_index]
                 del usernames[client_index]
                 print("client removed due to inactivity")
@@ -106,24 +163,45 @@ def handleClientInfo():
 
 def broadcast():
     while True:
-            for player in players:
-                if player.protocol == "NEW_PLAYER":
-                    player.protocol = "UPDATE_STATE"
-                if player.protocol == "DISCONNECT":
-                    #print("molqqqq>.") #means "whaaaaaaat?!" in bulgarian :)
-                    disconnectObject = pickle.dumps(infoObjects.disconnectionObject(player.nickname, player.protocol))
-                    server.sendall(disconnectObject)
-                else:
-                    #playerObject = pickle.dumps(player)
-                    serverInfo = infoObjects.generalServerInfo("UPDATE_STATE", players, objects, weapons, bullets) ##HERE I REMOVED THE player.nickname PARAMETER BETWEEN PLAYERS AND MAP
-                    #print(bullets)
-                    serverInfo = pickle.dumps(serverInfo)
-                    for client in clients:
-                        server.sendto(serverInfo, client)
-                    bullets.clear()
+        if len(bulletsObjects) != 0:
+            for bullet in bulletsObjects:
+                bullet.move()
+        for player in players:
+            if player.protocol == "NEW_PLAYER":
+                player.protocol = "UPDATE_STATE"
+            if player.protocol == "DISCONNECT":
+                #print("molqqqq>.") #means "whaaaaaaat?!" in bulgarian :)
+                disconnectObject = pickle.dumps(infoObjects.disconnectionObject(player.nickname, player.protocol))
+                server.sendall(disconnectObject)
+            else:
+                #playerObject = pickle.dumps(player)
+                #for bullet in bulletsObjects:
+                 #   newBullet = infoObjects.infoBulletsObject(bullet.rect.x, bullet.rect.y, bullet.shooter, bullet.id, bullet.angle)
+                    #bulletIndex = bulletsObjects.index(bullet)
+                  #  bulletsInfo.append(newBullet)
+
+
+                serverInfo = infoObjects.generalServerInfo("UPDATE_STATE", players, objects, weapons, bulletsInfo) ##HERE I REMOVED THE player.nickname PARAMETER BETWEEN PLAYERS AND MAP
+    
+                #if len(bulletsInfo) != 0:
+                    #print(f'BULLETS AFTER: {bulletsInfo}')
+                serverInfo = pickle.dumps(serverInfo)
+                for client in clients:
+                    server.sendto(serverInfo, client)
+
+def handlingTheBullets():
+    while True:
+        if len(bulletsObjects) != 0:
+            for bullet in bulletsObjects:
+                bullet.move()
+            bulletsObjects.clear()
+            bulletsInfo.clear()
+        else:
+            pass
+
 
 def ping():
-     threading.Timer(1, ping).start()
+     threading.Timer(4, ping).start()
      if len(players) > 0:
         print("entered function")
         for client in clients:
@@ -140,9 +218,11 @@ def main ():
     setWeapons()
     t1 = threading.Thread(target = recieve)
     t2 = threading.Thread(target = broadcast)
+    #t3 = threading.Thread(target = handlingTheBullets)
     t1.start()
     t2.start()
-    ping()
+    #t3.start()
+    #ping()
 
 if __name__ == "__main__":
     main()

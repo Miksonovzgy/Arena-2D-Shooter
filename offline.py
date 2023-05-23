@@ -73,7 +73,7 @@ class ClientSide():
         self.client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.server = "192.168.0.108"
         self.clientPort = random.randint(8000, 9000)
-        self.port = 9998
+        self.port = 9999
         self.address = (self.server, self.port)
         self.client.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1)
         self.client.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1)
@@ -93,42 +93,33 @@ class ClientSide():
 
     def handleIncomingServerInfoUpdate(self):
         while True:
-            message, _ = self.client.recvfrom(1024)
+            message, _ = self.client.recvfrom(4096)
             infoFromServer = pickle.loads(message)
             updateMessages.put(infoFromServer)
 
             if not updateMessages.empty():
                 updateInfo = updateMessages.get()
+
+                if updateInfo.protocol == "PING":
+                    backPingObj = infoObjects.pingObject("BACK_PING", NICKNAME)
+                    print("sending backping")
+                    backPingObj = pickle.dumps(backPingObj)
+                    self.client.sendto(backPingObj, self.address)
+
                 if updateInfo.protocol == "UPDATE_STATE":
                     for player in updateInfo.playerList:
                         if player.nickname == NICKNAME:
-                            #print(player.nickname, player.positionVector)
                             if player.nickname not in PLAYER_NICKNAMES:
                                 player = Player(player.pos, spriteGroup, player.nickname, True)
                         else:
                             if player.nickname not in PLAYER_NICKNAMES:
-                                #print("a")
                                 player = Player(player.pos, spriteGroup, player.nickname, False)
+                                print("drew players")
                             else:
-                                #print(player.pos)
                                 index = PLAYER_NICKNAMES.index(player.nickname)
-                                #print(PLAYERS_ON_MAP[index].position, PLAYERS_ON_MAP[index].nickname, player.positionVector)
                                 PLAYERS_ON_MAP[index].position = player.positionVector
-                                #print(f'PLAYERS [PSITION:{PLAYERS_ON_MAP[index].position}')
                                 PLAYERS_ON_MAP[index].rect.center = player.pos ##ADDED
                                 PLAYERS_ON_MAP[index].angle_pointing = player.angle_pointing
-                                #print(f'PLAYER: {player.nickname}s position is: {player.pos}')
-
-                    #if len(updateInfo.bulletList) != 0:
-                        #print(f'BULLET LIST: {updateInfo.bulletList}')
-
-                    for bullet in updateInfo.bulletList: #needs to be chaned to avoid lag
-                        #print("GOT TO BULLET MODULE")
-                        for currentBullet in BULLETS_ON_MAP:
-                            if bullet.id != currentBullet.id:
-                                print("APPENDED")
-                                BULLETS_ON_MAP.append(Bullet(bullet.posX, bullet.posY, spriteGroup, bullet.shooter, bullet.id))
-                                print(BULLETS_ON_MAP)
                     
                     if len(WEAPONS_ON_MAP) == 4:
                         for weapon in updateInfo.weaponList:
@@ -151,15 +142,30 @@ class ClientSide():
                     for barrel in updateInfo.objectList:
                         if len(OBJECTS) == 0:
                             barrel = ObjectBarrel(barrel.pos, spriteGroup)
+                
+                if updateInfo.protocol == "NEW_BULLET_SERVERSIDE":
+                    print("GOT TO BULLET MODULE")
+                    ids = []
+                    for currentBullet in BULLETS_ON_MAP:
+                        ids.append(currentBullet.id)
+                    if updateInfo.id not in ids:
+                        print("APPENDED")
+                        BULLETS_ON_MAP.append(Bullet(updateInfo.posX, updateInfo.posY, spriteGroup, updateInfo.shooter, updateInfo.id, updateInfo.angle))
+                        print(BULLETS_ON_MAP)
+                
+                if updateInfo.protocol == "DESTROY_BULLET":
+                    for bullet in BULLETS_ON_MAP:
+                        if bullet.id == updateInfo.id:
+                            BULLETS_ON_MAP.remove(bullet)
+                            spriteGroup.remove(bullet)
+
 
                 if updateInfo.protocol == "DISCONNECT":
-                    PLAYERS_ON_MAP.remove(updateInfo.nickname)
+                    index = PLAYER_NICKNAMES.index(updateInfo.nickname)
+                    del PLAYERS_ON_MAP[index]
+
+
                 
-                if updateInfo.protocol == "PING":
-                    backPingObj = infoObjects.pingObject("BACK_PING", NICKNAME)
-                    print("sending backping")
-                    backPingObj = pickle.dumps(backPingObj)
-                    self.client.sendto(backPingObj, self.address)
 
                             
                     
@@ -169,17 +175,19 @@ class ClientSide():
             if hasattr(ourPlayer, 'position'):
                 if hasattr (ourPlayer, 'nickname'):
                     #print(f'OUR PLAYER POINTING: {ourPlayer.angle_pointing}')
-                    bulletsShot = MY_BULLETS_ON_MAP_INFO
-                    #if len(MY_BULLETS_ON_MAP_INFO) != 0:
-                        #print(bulletsShot)
+                    bulletsShot = []
 
+                    #if len(bulletsShot) != 0:
+                        #print(f"SENDING {bulletsShot}")
                     ourPlayerInfo = infoObjects.generalClientInfo("CLIENT_INFO", ourPlayer.position, ourPlayer.rect.center, ourPlayer.nickname, bulletsShot, ourPlayer.weaponId, ourPlayer.angle_pointing) ##ADDED
+
 
                     #if(len(bulletsShot)!= 0):
                         #print(f'BULLETS ARRAY: {ourPlayerInfo.bulletsShot}')
 
                     ourPlayerInfoObject = pickle.dumps(ourPlayerInfo)
                     self.client.sendto(ourPlayerInfoObject, self.address)
+
                     
 
 client = ClientSide()
@@ -396,33 +404,21 @@ class Player(pygame.sprite.Sprite):
                     if event.type == pygame.MOUSEBUTTONDOWN and self.ammo > 0 and self.weapon and weapon.id == self.weaponId:
 
                         bulletID = random.randint(1, 10000)
-
-                        #bullet = Bullet(weapon.rect.x, weapon.rect.y, spriteGroup, self.nickname, bulletID)
-                        bullet_info = infoObjects.infoBulletsObject("NEW_BULLET",weapon.rect.x, weapon.rect.y, self.nickname, bulletID)
-                        #MY_BULLETS_ON_MAP.append(bullet)
-                        #MY_BULLETS_ON_MAP_INFO.clear()
-                        #MY_BULLETS_ON_MAP_INFO.append(bullet_info)
-                        #print(f'CREATED and APPENDED: {bullet_info}')
-
-                        ourPlayer = findPlayer()
+                        bullet_info = infoObjects.infoBulletsObject(weapon.rect.x, weapon.rect.y, self.nickname, bulletID, weapon.angle_to_rotate, "NEW_BULLET")
+                        
                         client = ClientSide()
-                        if hasattr(ourPlayer, 'position'):
-                            if hasattr (ourPlayer, 'nickname'):
-                                ourPlayerInfoObject = pickle.dumps(bullet_info)
-                                client.client.sendto(ourPlayerInfoObject, client.address)
+
+                        client.client.sendto(pickle.dumps(bullet_info), client.address)
+
+                        print(f'APPENDING BULLET ON MAP INFO: {bullet_info}')
                         
                         self.ammo -= 1
                 
     def checkForHits(self):
         for bullet in BULLETS_ON_MAP:
             if bullet.rect.colliderect(self.rect.centerx, self.rect.centery, self.rect.height, self.rect.width) and bullet.shooter != self.nickname:
-                #print("GEYS HERE")
                 self.health -= 1
                 BULLETS_ON_MAP.remove(bullet)
-                
-                for bullet_info in MY_BULLETS_ON_MAP_INFO:
-                    if bullet_info.id == bullet.id:
-                        MY_BULLETS_ON_MAP_INFO.remove(bullet_info)
                 spriteGroup.remove(bullet)
 
     def checkForHealth(self):
@@ -464,36 +460,46 @@ class Weapon(pygame.sprite.Sprite): #IMPORTANT, write this thing in the brackets
                 self.rect.y = player.rect.y + 35
 
 class Bullet(pygame.sprite.Sprite):
-    def __init__(self, pos_x, pos_y, group, shooter, id):
+    def __init__(self, pos_x, pos_y, group, shooter, id, angle = 0, onServer = False):
         super().__init__(group)
         self.position = pygame.math.Vector2()
         self.position.x = pos_x
         self.position.y = pos_y
-        self.image_original = pygame.transform.scale(pygame.image.load('sprites/weapons/small_bullet2.png'), BULLET_SIZE)
-        self.rect = self.image_original.get_rect(center = (pos_x, pos_y))
+
+        self.image= pygame.transform.scale(pygame.image.load('sprites/weapons/small_bullet2.png'), BULLET_SIZE)
+        self.rect = self.image.get_rect(center = (pos_x, pos_y))
+
         self.bullet_speed = 60
         self.shooter = shooter
         self.id = id
+
 
         for player in PLAYERS_ON_MAP:
             if player.nickname == self.shooter:# and player.nickname != NICKNAME:
                 self.angle_to_move = player.angle_pointing
 
 
-        
-        #self.angle_to_move = shooter.angle_pointing
-        self.angle_to_rotate = self.angle_to_move - 90
+     
+        #mouse_x, mouse_y = pygame.mouse.get_pos()
+        #dx, dy = mouse_x - WIDTH/2, -(mouse_y - HEIGHT/2)
+
+        #self.angle_to_rotate = self.angle_to_move - 90
 
         #self.angle = math.degrees(math.atan2(dy, dx)) - 90
-        self.image = pygame.transform.rotate(self.image_original, self.angle_to_rotate)
+        self.angle = angle
+        self.image = pygame.transform.rotate(self.image, self.angle - 90)
         self.rect = self.image.get_rect(center=self.rect.center)
 
-        #self.angle_to_move = math.atan2(mouse_y - HEIGHT/2, mouse_x - WIDTH/2)
+        self.angle_to_move = self.angle
         self.dx = math.cos(self.angle_to_move) * self.bullet_speed
         self.dy = math.sin(self.angle_to_move) * self.bullet_speed
 
-        #mouse_x, mouse_y = pygame.mouse.get_pos()
-        #dx, dy = mouse_x - WIDTH/2, -(mouse_y - HEIGHT/2)
+        
+    
+        #self.angle = angle
+        #self.dx = math.cos(self.angle) * self.bullet_speed
+        #self.dy = math.sin(self.angle) * self.bullet_speed
+
 
 
 
@@ -503,15 +509,15 @@ class Bullet(pygame.sprite.Sprite):
         #print(f'BULLETS ARE MOVING BY: {self.position.x, self.position.y}')
         self.rect.x = int(self.position.x)
         self.rect.y = int(self.position.y)
-        self.checkForCollisionWithObject()
+        #self.checkForCollisionWithObject()
         self.checkForCollisionWithBorder()
     
     def checkForCollisionWithObject(self):
         for object in OBJECTS:
             if object.rect.colliderect(self.rect.x, self.rect.y, self.rect.width,self.rect.height):
                 BULLETS_ON_MAP.remove(self)
-                #if self in MY_BULLETS_ON_MAP:
-                    #MY_BULLETS_ON_MAP.remove(self)
+                if self in MY_BULLETS_ON_MAP:
+                    MY_BULLETS_ON_MAP.remove(self)
             for bullet_info in MY_BULLETS_ON_MAP_INFO:
                 if bullet_info.id == self.id:
                     MY_BULLETS_ON_MAP_INFO.remove(bullet_info)

@@ -54,13 +54,21 @@ class infoWeaponObject(): #I NEED SOME ASSISTANCE HERE AND FOR THE BULLETS, AS I
         self.angle = angle
 
 class infoBulletsObject():
-    def __init__(self,protocol, posX, posY, shooter, id):
-        self.protocol = protocol        ##SO that we can send it as a separate message to the GeneralClientInfo
+    def __init__(self, posX, posY, shooter, id, angle, protocol = ""):        ##SO that we can send it as a separate message to the GeneralClientInfo
         self.posX = posX
         self.posY = posY
         #self.group = group
         self.shooter = shooter
         self.id = id
+        self.bullet_speed = 10
+        self.angle = angle
+        self.protocol = protocol
+
+class destroyBulletInfoObject():
+    def __init__(self, protocol, id):
+        self.protocol = protocol
+        self.id = id
+
 
 class disconnectionObject():
     def __init__(self, nickname, protocolMessage):
