@@ -22,7 +22,7 @@ BARREL_POSITION = (200, 200) #NEEDS TO BE UPDATED WHEN WE CHANGE UP THE MAP A BI
 messages = queue.Queue()
 sendingQueue = queue.Queue()
 server =  socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-server.bind(("192.168.0.108", 9999))
+server.bind(("localhost", 9998))
 idlePosition = pygame.math.Vector2(0, 0)
 
 server.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1)
@@ -37,7 +37,7 @@ class BulletOnServer(pygame.sprite.Sprite):
         self.rect = pygame.Rect(pos_x, pos_y, 32/3, 80/3)
 
             
-        self.bullet_speed = 10
+        self.bullet_speed = 5
         self.shooter = shooter
         self.id = id
 

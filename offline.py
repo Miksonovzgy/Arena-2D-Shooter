@@ -13,6 +13,7 @@ import threading
 import queue
 import os
 
+
 pygame.init()
 OBJECTS = []
 PLAYER_NICKNAMES = []
@@ -72,7 +73,7 @@ class ClientSide():
         self.client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.server = "localhost"
         self.clientPort = random.randint(8000, 9000)
-        self.port = 9999
+        self.port = 9998
         self.address = (self.server, self.port)
         self.client.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1)
         self.client.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1)
@@ -138,9 +139,9 @@ class ClientSide():
                             weapon = Weapon(weapon.posX, weapon.posY, spriteGroup, weapon.id, weapon.owner)
                             #if weapon.id == weapon.id:
                                # weapon.owner = weapon.owner
-                    for barrel in updateInfo.objectList:
-                        if len(OBJECTS) == 0:
-                            barrel = ObjectBarrel(barrel.pos, spriteGroup)
+                    #for barrel in updateInfo.objectList:
+                        #if len(OBJECTS) == 0:
+                          #  barrel = ObjectBarrel(barrel.pos, spriteGroup)
                 
                 if updateInfo.protocol == "NEW_BULLET_SERVERSIDE":
                     print("GOT TO BULLET MODULE")
@@ -318,17 +319,16 @@ class Player(pygame.sprite.Sprite):
         mouse_x, mouse_y = pygame.mouse.get_pos()
         dx, dy = mouse_x -  WIDTH/2, -(mouse_y - HEIGHT/2)
 
-        self.angle_pointing = math.degrees(math.atan2(dy, dx)) ##IMPORTANT CHANGE / NOW WE STORE THE ANGLE AT WHICH EACH PLAYER IS POINTING
+        self.angle_pointing = math.atan2(-dy, dx) ##IMPORTANT CHANGE / NOW WE STORE THE ANGLE AT WHICH EACH PLAYER IS POINTING
 
         self.checkIfShooting(events, spriteGroup)
         self.playerInput()
         self.animations()
-        self.checkForHits()
+        #self.checkForHits()
         self.checkForHealth()
         self.healthDisplay()
         self.nicknameDisplay()
         self.ammoDisplay()
-        self.checkForWeaponDetection(events)#this can be called in the update player function in the object itself i think
         
 
         speed = self.speed
@@ -404,7 +404,7 @@ class Player(pygame.sprite.Sprite):
                     if event.type == pygame.MOUSEBUTTONDOWN and self.ammo > 0 and self.weapon and weapon.id == self.weaponId:
 
                         bulletID = random.randint(1, 10000)
-                        bullet_info = infoObjects.infoBulletsObject(weapon.rect.x, weapon.rect.y, self.nickname, bulletID, weapon.angle_to_rotate, "NEW_BULLET")
+                        bullet_info = infoObjects.infoBulletsObject(weapon.rect.x, weapon.rect.y, self.nickname, bulletID, self.angle_pointing, "NEW_BULLET")
                         
                         client = ClientSide()
 
@@ -419,6 +419,7 @@ class Player(pygame.sprite.Sprite):
             if bullet.rect.colliderect(self.rect.centerx, self.rect.centery, self.rect.height, self.rect.width) and bullet.shooter != self.nickname:
                 self.health -= 1
                 BULLETS_ON_MAP.remove(bullet)
+                print("REMOVED DUE TO HITS")
                 spriteGroup.remove(bullet)
 
     def checkForHealth(self):
@@ -436,7 +437,6 @@ class Weapon(pygame.sprite.Sprite): #IMPORTANT, write this thing in the brackets
     def __init__(self, posX, posY, group, id, owner):
         super().__init__(group) #IMPORTANT, RLY IMPORTANT without this line in the object, this implementation doesnt work
         self.image = pygame.image.load('sprites/weapons/pistol3.png')
-        self.image = pygame.transform.scale(self.image, WEAPON_SIZE)
         self.image_original = pygame.transform.scale(self.image, WEAPON_SIZE)
         self.rect = self.image.get_rect(topleft=(posX, posY))
         self.owner = ""
@@ -470,7 +470,7 @@ class Bullet(pygame.sprite.Sprite):
         self.image= pygame.transform.scale(pygame.image.load('sprites/weapons/small_bullet2.png'), BULLET_SIZE)
         self.rect = self.image.get_rect(center = (pos_x, pos_y))
 
-        self.bullet_speed = 60
+        self.bullet_speed = 5
         self.shooter = shooter
         self.id = id
 
@@ -488,12 +488,12 @@ class Bullet(pygame.sprite.Sprite):
 
         #self.angle = math.degrees(math.atan2(dy, dx)) - 90
         self.angle = angle
+        self.dx = math.cos(self.angle) * self.bullet_speed
+        self.dy = math.sin(self.angle) * self.bullet_speed
+        self.angle = math.degrees(-angle)
+
         self.image = pygame.transform.rotate(self.image, self.angle - 90)
         self.rect = self.image.get_rect(center=self.rect.center)
-
-        self.angle_to_move = self.angle
-        self.dx = math.cos(self.angle_to_move) * self.bullet_speed
-        self.dy = math.sin(self.angle_to_move) * self.bullet_speed
 
         
     
@@ -510,11 +510,12 @@ class Bullet(pygame.sprite.Sprite):
         #print(f'BULLETS ARE MOVING BY: {self.position.x, self.position.y}')
         self.rect.x = int(self.position.x)
         self.rect.y = int(self.position.y)
-        #self.checkForCollisionWithObject()
+        self.checkForCollisionWithObject()
         self.checkForCollisionWithBorder()
     
     def checkForCollisionWithObject(self):
         for object in OBJECTS:
+            print(OBJECTS)
             if object.rect.colliderect(self.rect.x, self.rect.y, self.rect.width,self.rect.height):
                 BULLETS_ON_MAP.remove(self)
                 if self in MY_BULLETS_ON_MAP:
@@ -522,6 +523,7 @@ class Bullet(pygame.sprite.Sprite):
             for bullet_info in MY_BULLETS_ON_MAP_INFO:
                 if bullet_info.id == self.id:
                     MY_BULLETS_ON_MAP_INFO.remove(bullet_info)
+            print("REMOVED DUE TO OBJECT")
             spriteGroup.remove(self)
 
     
@@ -534,7 +536,7 @@ class Bullet(pygame.sprite.Sprite):
                     if bullet_info.id == self.id:
                         MY_BULLETS_ON_MAP_INFO.remove(bullet_info)
 
-
+            print("REMOVED DUE TO BORDER")
             spriteGroup.remove(self)    
 
 class ObjectBarrel(pygame.sprite.Sprite):
@@ -606,6 +608,9 @@ def mainGameLoop():
                     run = False
                     client.sendDisconnection(NICKNAME)
                     os._exit(os.X_OK)
+    
+            for player in PLAYERS_ON_MAP:
+                player.checkForWeaponDetection(events)#this can be called in the update player function in the object itself i think
 
             drawWindow(events, spriteGroup)
             drawCrosshair()
