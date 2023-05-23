@@ -9,6 +9,8 @@ import math
 
 spriteGroup = pygame.sprite.Group()
 
+SENDING_STATE = True
+
 clients = []
 usernames = []
 weapons = []
@@ -25,16 +27,18 @@ server =  socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 server.bind(("localhost", 9998))
 idlePosition = pygame.math.Vector2(0, 0)
 
+
 server.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1)
 server.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1)
 
 class BulletOnServer(pygame.sprite.Sprite):
-    def __init__(self, pos_x, pos_y, group, shooter, id, angle = 0):
+    def __init__(self, pos_x, pos_y, group, shooter, id,new_or_old, angle = 0):
         super().__init__(group)
         self.position = pygame.math.Vector2()
         self.position.x = pos_x
         self.position.y = pos_y
         self.rect = pygame.Rect(pos_x, pos_y, 32/3, 80/3)
+        self.new_or_old = new_or_old
 
             
         self.bullet_speed = 5
@@ -100,8 +104,19 @@ def setWeapons():
         index += 200
 
 def handleClientInfo():
+
     while not messages.empty():
         messageObject, adr = messages.get()
+        
+        if messageObject.protocol == 'NEW_BULLET':
+            if len(bulletsObjects) != 0:
+                for presentBullet in bulletsObjects:
+                    if presentBullet.id != messageObject.id:
+                        #print("APPENDED")  
+                        bulletsObjects.append(BulletOnServer(messageObject.posX, messageObject.posY, spriteGroup,messageObject.shooter, messageObject.id,"NEW", messageObject.angle))
+            else:
+                bulletsObjects.append(BulletOnServer(messageObject.posX, messageObject.posY, spriteGroup, messageObject.shooter, messageObject.id,"NEW", messageObject.angle))
+        
         if messageObject.protocol == "NAME":
             nickname = messageObject.nickname 
             usernames.append(nickname)
@@ -110,6 +125,8 @@ def handleClientInfo():
             #print(f'INDEX: {index}')
             setPlayerInfo(index, nickname, "NEW_PLAYER")   
             print(f'SETTING {nickname}')
+
+
         if messageObject.protocol == "CLIENT_INFO": #THIS WILL GIVE YOU A GOOD IDEA HOW THE BIG INFO OBJECT NEEDS TO LOOK
             #print(messageObject, messageObject.nickname, messageObject.protocol)
             index = usernames.index(messageObject.nickname) 
@@ -121,22 +138,7 @@ def handleClientInfo():
                 if weapon.id == messageObject.weaponOwnedId:
                     weapon.owner = messageObject.nickname
 
-            #print(messageObject.bulletsShot)
-
-
-        if messageObject.protocol == 'NEW_BULLET':
-            if len(bulletsObjects) != 0:
-                for presentBullet in bulletsObjects:
-                    if presentBullet.id != messageObject.id:
-                        print("APPENDED")  
-                        bulletsObjects.append(BulletOnServer(messageObject.posX, messageObject.posY, spriteGroup,messageObject.shooter, messageObject.id, messageObject.angle))
-            else:
-                bulletsObjects.append(BulletOnServer(messageObject.posX, messageObject.posY, spriteGroup, messageObject.shooter, messageObject.id, messageObject.angle))
-            
-            messageObject.protocol = "NEW_BULLET_SERVERSIDE"
-            for client in clients:
-                server.sendto(pickle.dumps(messageObject), client)
-                
+                            
              #needs to be cleared after every time we send info to clients for the bullets
 
         #if messageObject.protocol == "DISCONNECT":
@@ -158,11 +160,17 @@ def handleClientInfo():
                 del players[client_index]
                 del usernames[client_index]
                 print("client removed due to inactivity")
-        else:
-            pass
 
 def broadcast():
     while True:
+        for bullet in bulletsObjects:
+            if bullet.new_or_old == "NEW":
+                bullet.new_or_old = "OLD"
+
+            messageObject = infoObjects.infoBulletsObject(bullet.position.x, bullet.position.y, bullet.shooter, bullet.id, bullet.angle,"NEW_BULLET_SERVERSIDE")
+            for client in clients:
+                server.sendto(pickle.dumps(messageObject), client)
+                
         if len(bulletsObjects) != 0:
             for bullet in bulletsObjects:
                 bullet.move()

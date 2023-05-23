@@ -36,6 +36,8 @@ PLAYERS_ON_MAP = []
 WEAPONS_ON_MAP = []
 MAP_INDEX = 1
 CAN_SEND = False
+
+
 updateMessages = queue.Queue()
 sendingQueue = queue.Queue()
 
@@ -77,6 +79,7 @@ class ClientSide():
         self.address = (self.server, self.port)
         self.client.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1)
         self.client.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1)
+        self.sending_state = False
     
     def sendHandshake(self, nickname):
         print(nickname)
@@ -102,7 +105,7 @@ class ClientSide():
 
                 if updateInfo.protocol == "PING":
                     backPingObj = infoObjects.pingObject("BACK_PING", NICKNAME)
-                    print("sending backping")
+                    #print("sending backping")
                     backPingObj = pickle.dumps(backPingObj)
                     self.client.sendto(backPingObj, self.address)
 
@@ -114,7 +117,7 @@ class ClientSide():
                         else:
                             if player.nickname not in PLAYER_NICKNAMES:
                                 player = Player(player.pos, spriteGroup, player.nickname, False)
-                                print("drew players")
+                                #print("drew players")
                             else:
                                 index = PLAYER_NICKNAMES.index(player.nickname)
                                 PLAYERS_ON_MAP[index].position = player.positionVector
@@ -144,14 +147,14 @@ class ClientSide():
                           #  barrel = ObjectBarrel(barrel.pos, spriteGroup)
                 
                 if updateInfo.protocol == "NEW_BULLET_SERVERSIDE":
-                    print("GOT TO BULLET MODULE")
+                    #print("GOT TO BULLET MODULE")
                     ids = []
                     for currentBullet in BULLETS_ON_MAP:
                         ids.append(currentBullet.id)
                     if updateInfo.id not in ids:
-                        print("APPENDED")
+                        #print("APPENDED")
                         BULLETS_ON_MAP.append(Bullet(updateInfo.posX, updateInfo.posY, spriteGroup, updateInfo.shooter, updateInfo.id, updateInfo.angle))
-                        print(BULLETS_ON_MAP)
+                        #print(BULLETS_ON_MAP)
                 
                 if updateInfo.protocol == "DESTROY_BULLET":
                     for bullet in BULLETS_ON_MAP:
@@ -163,15 +166,20 @@ class ClientSide():
                 if updateInfo.protocol == "DISCONNECT":
                     index = PLAYER_NICKNAMES.index(updateInfo.nickname)
                     del PLAYERS_ON_MAP[index]
-
-
-                
-
-                            
-                    
+                          
+               
     def sendInfoToServer(self):
         while True:
             ourPlayer = findPlayer()
+            if self.sending_state:
+                    for weapon in WEAPONS_ON_MAP:
+                        if weapon.owner == NICKNAME:
+                            bulletID = random.randint(1, 10000)
+                            bullet_info = infoObjects.infoBulletsObject(weapon.rect.x, weapon.rect.y, ourPlayer.nickname, bulletID, ourPlayer.angle_pointing, "NEW_BULLET")
+                            self.client.sendto(pickle.dumps(bullet_info), client.address)
+                            self.sending_state = False
+                            #print("SENT")
+
             if hasattr(ourPlayer, 'position'):
                 if hasattr (ourPlayer, 'nickname'):
                     #print(f'OUR PLAYER POINTING: {ourPlayer.angle_pointing}')
@@ -321,7 +329,7 @@ class Player(pygame.sprite.Sprite):
 
         self.angle_pointing = math.atan2(-dy, dx) ##IMPORTANT CHANGE / NOW WE STORE THE ANGLE AT WHICH EACH PLAYER IS POINTING
 
-        self.checkIfShooting(events, spriteGroup)
+        #self.checkIfShooting(events, spriteGroup)
         self.playerInput()
         self.animations()
         #self.checkForHits()
@@ -397,35 +405,27 @@ class Player(pygame.sprite.Sprite):
             nicknameRect = nicknameText.get_rect()
         GAME_WINDOW.blit(nicknameText, nicknameRect)
             
-
-    def checkIfShooting(self, events, spriteGroup):
-            for event in events:
-                for weapon in WEAPONS_ON_MAP:
-                    if event.type == pygame.MOUSEBUTTONDOWN and self.ammo > 0 and self.weapon and weapon.id == self.weaponId:
-
-                        bulletID = random.randint(1, 10000)
-                        bullet_info = infoObjects.infoBulletsObject(weapon.rect.x, weapon.rect.y, self.nickname, bulletID, self.angle_pointing, "NEW_BULLET")
-                        
-                        client = ClientSide()
-
-                        client.client.sendto(pickle.dumps(bullet_info), client.address)
-
-                        print(f'APPENDING BULLET ON MAP INFO: {bullet_info}')
-                        
-                        self.ammo -= 1
                 
     def checkForHits(self):
         for bullet in BULLETS_ON_MAP:
             if bullet.rect.colliderect(self.rect.centerx, self.rect.centery, self.rect.height, self.rect.width) and bullet.shooter != self.nickname:
                 self.health -= 1
                 BULLETS_ON_MAP.remove(bullet)
-                print("REMOVED DUE TO HITS")
+                #print("REMOVED DUE TO HITS")
                 spriteGroup.remove(bullet)
 
     def checkForHealth(self):
         if self.health == 0 and self in PLAYERS_ON_MAP:
             spriteGroup.remove(self)
             PLAYERS_ON_MAP.remove(self)
+
+def checkIfShooting(events, client):
+        ourPlayer = findPlayer()
+        for event in events:
+            for weapon in WEAPONS_ON_MAP:
+                if event.type == pygame.MOUSEBUTTONDOWN and ourPlayer.ammo > 0 and ourPlayer.weapon and weapon.id == ourPlayer.weaponId:
+                    client.sending_state = True
+                    ourPlayer.ammo -= 1
 
 ##To Maximize the Window Size ONLY FOR WINDOWS
 if sys.platform == "win32":
@@ -515,7 +515,7 @@ class Bullet(pygame.sprite.Sprite):
     
     def checkForCollisionWithObject(self):
         for object in OBJECTS:
-            print(OBJECTS)
+            #print(OBJECTS)
             if object.rect.colliderect(self.rect.x, self.rect.y, self.rect.width,self.rect.height):
                 BULLETS_ON_MAP.remove(self)
                 if self in MY_BULLETS_ON_MAP:
@@ -523,7 +523,7 @@ class Bullet(pygame.sprite.Sprite):
             for bullet_info in MY_BULLETS_ON_MAP_INFO:
                 if bullet_info.id == self.id:
                     MY_BULLETS_ON_MAP_INFO.remove(bullet_info)
-            print("REMOVED DUE TO OBJECT")
+            #print("REMOVED DUE TO OBJECT")
             spriteGroup.remove(self)
 
     
@@ -536,7 +536,7 @@ class Bullet(pygame.sprite.Sprite):
                     if bullet_info.id == self.id:
                         MY_BULLETS_ON_MAP_INFO.remove(bullet_info)
 
-            print("REMOVED DUE TO BORDER")
+            #print("REMOVED DUE TO BORDER")
             spriteGroup.remove(self)    
 
 class ObjectBarrel(pygame.sprite.Sprite):
@@ -547,7 +547,7 @@ class ObjectBarrel(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(topleft = pos)
         OBJECTS.append(self)
 
-def drawWindow(events, spriteGroup):
+def drawWindow(events, spriteGroup, client):
     GAME_WINDOW.blit(BG, (0,0))
 
     for bullet in BULLETS_ON_MAP:
@@ -556,6 +556,8 @@ def drawWindow(events, spriteGroup):
 
     for weapon in WEAPONS_ON_MAP:
         weapon.updateWeaponPosition()
+
+    checkIfShooting(events, client)
         #print(f'WEAPON OWNER: {weapon.owner}')
         #if weapon.owner == NICKNAME:
             #print(f'WeaponId: {weapon.id}, POSITION: {weapon.rect.center}')
@@ -612,7 +614,7 @@ def mainGameLoop():
             for player in PLAYERS_ON_MAP:
                 player.checkForWeaponDetection(events)#this can be called in the update player function in the object itself i think
 
-            drawWindow(events, spriteGroup)
+            drawWindow(events, spriteGroup, client)
             drawCrosshair()
             pygame.display.update()
   
