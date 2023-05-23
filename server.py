@@ -132,7 +132,7 @@ def handleClientInfo():
                         bulletsObjects.append(BulletOnServer(messageObject.posX, messageObject.posY, spriteGroup,messageObject.shooter, messageObject.id, messageObject.angle))
             else:
                 bulletsObjects.append(BulletOnServer(messageObject.posX, messageObject.posY, spriteGroup, messageObject.shooter, messageObject.id, messageObject.angle))
-        
+            
             messageObject.protocol = "NEW_BULLET_SERVERSIDE"
             for client in clients:
                 server.sendto(pickle.dumps(messageObject), client)

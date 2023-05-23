@@ -13,7 +13,6 @@ import threading
 import queue
 import os
 
-
 pygame.init()
 OBJECTS = []
 PLAYER_NICKNAMES = []
@@ -71,7 +70,7 @@ spriteGroup = CameraGroup()
 class ClientSide():
     def __init__(self):
         self.client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.server = "192.168.0.108"
+        self.server = "localhost"
         self.clientPort = random.randint(8000, 9000)
         self.port = 9999
         self.address = (self.server, self.port)
@@ -329,6 +328,7 @@ class Player(pygame.sprite.Sprite):
         self.healthDisplay()
         self.nicknameDisplay()
         self.ammoDisplay()
+        self.checkForWeaponDetection(events)#this can be called in the update player function in the object itself i think
         
 
         speed = self.speed
@@ -436,6 +436,7 @@ class Weapon(pygame.sprite.Sprite): #IMPORTANT, write this thing in the brackets
     def __init__(self, posX, posY, group, id, owner):
         super().__init__(group) #IMPORTANT, RLY IMPORTANT without this line in the object, this implementation doesnt work
         self.image = pygame.image.load('sprites/weapons/pistol3.png')
+        self.image = pygame.transform.scale(self.image, WEAPON_SIZE)
         self.image_original = pygame.transform.scale(self.image, WEAPON_SIZE)
         self.rect = self.image.get_rect(topleft=(posX, posY))
         self.owner = ""
@@ -605,9 +606,6 @@ def mainGameLoop():
                     run = False
                     client.sendDisconnection(NICKNAME)
                     os._exit(os.X_OK)
-    
-            for player in PLAYERS_ON_MAP:
-                player.checkForWeaponDetection(events)#this can be called in the update player function in the object itself i think
 
             drawWindow(events, spriteGroup)
             drawCrosshair()
