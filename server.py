@@ -18,7 +18,7 @@ BARREL_POSITION = (200, 200) #NEEDS TO BE UPDATED WHEN WE CHANGE UP THE MAP A BI
 messages = queue.Queue()
 sendingQueue = queue.Queue()
 server =  socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-server.bind(("192.168.0.108", 9998))
+server.bind(("localhost", 9998))
 idlePosition = pygame.math.Vector2(0, 0)
 
 #server.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1)
